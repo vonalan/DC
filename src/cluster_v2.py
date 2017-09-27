@@ -32,19 +32,21 @@ def softmin(X):
 X = tf.placeholder('float', [None, indim])
 Y = softmax(X, weights)
 T = softmin(Y)
-Q = tf.log(tf.div(Y, T))
 
-F = tf.reshape(tf.reduce_mean(T, 0), (-1, outdim))
-# U = tf.random_uniform((1, outdim))
+''''''
+# Q = tf.log(tf.div(Y, T))
+
+# F = tf.reshape(tf.reduce_mean(T, 0), (-1, outdim))
 U = tf.placeholder('float', [1, outdim])
-R = tf.log(tf.div(F, U))
+# R = tf.log(tf.div(F, U))
 
-term1 = tf.multiply(T, Q)
-term2 = tf.multiply(T, R)
-loss = term1 + term2
-cost = tf.reduce_mean(tf.reduce_sum(loss, 1))
+# term1 = tf.multiply(T, Q)
+# term2 = tf.multiply(T, R)
+# loss = term1 + term2
+# cost = tf.reduce_mean(tf.reduce_sum(loss, 1))
+''''''
 
-# cost = - tf.reduce_mean(tf.reduce_sum(tf.multiply(T, tf.log(Y)), 1))
+cost = - tf.reduce_mean(tf.reduce_sum(tf.multiply(T, tf.log(Y)),1))
 optimizer = tf.train.GradientDescentOptimizer(0.01).minimize(cost)
 init = tf.global_variables_initializer()
 
@@ -67,7 +69,7 @@ while True:
         # print('%12d'%count, sess.run(cost, feed_dict={X: xs, U: us}).flatten())
         mycost = sess.run(cost, feed_dict={X: xs, U: us})
         log = '%s  count: %10d  cost: %.8e'%(dt.datetime.now(), count, mycost)
-        wf = open('../data/log.txt', 'a')
+        wf = open('../data/log_v2.txt', 'a')
         wf.write(log)
         wf.write('\n')
         wf.close()
