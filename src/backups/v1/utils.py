@@ -26,24 +26,6 @@ def loadModel(root, name, epoch):
     saver.save(sess, os.path.join(dstdir, '%s_%d.ckpt' % (name, epoch)))
     return sess
 
-def mini_kmeans(root, name, X, outdim, factor=4):
-    import random
-    from sklearn.externals import joblib
-    dstdir = os.path.join(root, name)
-    if not os.path.exists(dstdir): os.mkdir(dstdir)
-    mfile = os.path.join(dstdir, r"kth_kmeans_r9_k%d.m" % (outdim))
-    if not os.path.exists(mfile):
-        from sklearn.cluster import KMeans
-        idx = random.sample([i for i in range(X.shape[0])], outdim * factor)
-        xs = X[idx, :]
-        kms = KMeans(n_clusters=outdim).fit(xs)
-        joblib.dump(kms, mfile, compress=3)
-    else:
-        kms = joblib.load(mfile)
-    return kms
-
-
-
 if __name__ == "__main__":
     import numpy as np
     import tensorflow as tf
