@@ -16,24 +16,25 @@ from sklearn.cluster import KMeans
 import sklearn.preprocessing as pre
 
 import utils
-from depict import NeuralNetwork
+import rbfnn
+from depict_v1 import NeuralNetwork
 
 indim = 162
-outdim = 128 
-
-kms = KMeans(n_clusters=outdim)
-nn = NeuralNetwork(indim=indim, outdim=outdim)
+outdim = 128
 
 C1 = np.loadtxt(r"..\data\kth_ctrain_r9.txt")
 C2 = np.loadtxt(r"..\data\kth_ctest_r9.txt")
+X0 = np.loadtxt(r"..\data\kth_xrand_r9.txt")
 X1 = np.loadtxt(r"..\data\kth_xtrain_r9.txt")
 X2 = np.loadtxt(r"..\data\kth_xtest_r9.txt")
-Y1 = np.loadtxt(r"..\data\kth_ytrain_r9.txt")
-Y2 = np.loadtxt(r"..\data\kth_ytest_r9.txt")
+T1 = np.loadtxt(r"..\data\kth_ytrain_r9.txt")
+T2 = np.loadtxt(r"..\data\kth_ytest_r9.txt")
 
-# np.random.shuffle(X)
-# X = X[:1024,:]
-# X = pre.minmax_scale(X,(0,1), axis=1) # distribution
+# kms = KMeans(n_clusters=outdim)
+# kms.fit(X0)
+
+nn = NeuralNetwork(indim=indim, outdim=outdim)
+nn.loadModel('../model', 1000)
 
 def bow(X, C):
     if not X.shape[0] == np.sum(C):
@@ -50,26 +51,26 @@ def bow(X, C):
         else: H = hs
     return H
 
-def kmeans():
-    kms.fit(X1)
-    T1 = kms.predict(X1)
-    T2 = kms.predict(X2)
-    H1 = bow(T1, C1)
-    H2 = bow(T2, C2)
-    return H1, H2
+# def kmeans():
+#     kms.fit(X1)
+#     Y1 = kms.predict(X1)
+#     Y2 = kms.predict(X2)
+#     H1 = bow(Y1, C1)
+#     H2 = bow(Y2, C2)
+#     return H1, H2
 
 def depict():
-    nn.loadModel('../model', 100000)
-    _, T1 = nn.predict(X1)
-    _, T2 = nn.predict(X2)
-    H1 = bow(T1, C1)
-    H2 = bow(T2, C2)
+    _, Y1 = nn.predict(X1)
+    _, Y2 = nn.predict(X2)
+    H1 = bow(Y1, C1)
+    H2 = bow(Y2, C2)
     return H1, H2
 
+# classifier 
+clsm = rbfnn.RBFNN(indim=outdim, numCenter=120, outdim=6)
 
+H1, H2 = depict()
+clsm.fit(H1, T1)
 
-
-
-
-
-
+Y1 = clsm.predict(X1)
+Y2 = clsm.predict(X2)

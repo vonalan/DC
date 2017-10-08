@@ -16,7 +16,7 @@ from sklearn.cluster import KMeans
 import sklearn.preprocessing as pre
 
 import utils
-from depict import NeuralNetwork
+from depict_v1 import NeuralNetwork
 
 indim = 162
 outdim = 4096
