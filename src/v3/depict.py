@@ -49,30 +49,73 @@ def build_network(indim=4096, outdim=6, prior=None):
     
     return dict(Z=Z, Y=Y, T=T, optimizer=optimizer, cost=cost)
 
+def train_network(graph, batch_size, num_epochs, pb_file_path):
+    init = tf.global_variables_initializer()
 
-# def train_network(graph, batch_size, num_epochs, pb_file_path):
-#     init = tf.global_variables_initializer()
-#
-#     # config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
-#     with tf.Session() as sess:
-#         sess.run(init)
-#
-#         epoch_delta = 2
-#         for epoch_index in range(num_epochs):
-#
-#             # train
-#             for i in range(12):
-#                 sess.run([graph['optimizer']], feed_dict={
-#                     graph['Z']: np.reshape(x_train[i], (1, 224, 224, 3)),
-#                     graph['T']: ([[1, 0]] if y_train[i] == 0 else [[0, 1]])
-#                 })
-#
-#             # valid
-#
-#         # constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ["output"])
-#         # with tf.gfile.FastGFile(pb_file_path, mode='wb') as f:
-#         #     f.write(constant_graph.SerializeToString())
+    # config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
+    with tf.Session() as sess:
+        sess.run(init)
+        
+        epoch_delta = 2
+        for epoch_index in range(num_epochs):
+            num_samples = data.shape[0]
+            indices = np.arange(num_samples)
+            np.random.shuffle(indices)
+            num_batches = int(ceil(num_samples/batch_size))
+            for batch_index in range(num_batches): 
+                begin = batch_index * batch_size
+                end = min((batch_index + 1) * batch_size, num_samples)
+                zs, ts = Z[begin:end,:], T[begin:end,:] 
+                sess.run([graph['optimizer']], feed_dict={
+                    graph['Z']: zs, 
+                    graph['T']: xs}) 
+            
+            if not epoch_index % epoch_delta: 
+                num_samples = data.shape[0]
+                indices = np.arange(num_samples)
+                num_batches = int(ceil(num_samples/batch_size))
+                for batch_index in range(num_batches): 
+                    begin = batch_index * batch_size
+                    end = min((batch_index + 1) * batch_size, num_samples)
+                    zs, ts = Z[begin:end,:], T[begin:end,:] 
+                    sess.run([graph['Y']], feed_dict={
+                        graph['Z']: zs, 
+                        graph['T']: xs}) 
 
+
+
+
+
+        constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ["output"])
+        with tf.gfile.FastGFile(pb_file_path, mode='wb') as f:
+            f.write(constant_graph.SerializeToString())
+
+def valid_network(jpg_path, pb_file_path):
+    with tf.Graph().as_default():
+        output_graph_def = tf.GraphDef()
+
+        with open(pb_file_path, "rb") as f:
+            output_graph_def.ParseFromString(f.read())
+            _ = tf.import_graph_def(output_graph_def, name="")
+
+        with tf.Session() as sess:
+            init = tf.global_variables_initializer()
+            sess.run(init)
+
+            input_x = sess.graph.get_tensor_by_name("input:0")
+            print input_x
+            out_softmax = sess.graph.get_tensor_by_name("softmax:0")
+            print out_softmax
+            out_label = sess.graph.get_tensor_by_name("output:0")
+            print out_label
+
+            img = io.imread(jpg_path)
+            img = transform.resize(img, (224, 224, 3))
+            img_out_softmax = sess.run(out_softmax, feed_dict={input_x:np.reshape(img, [-1, 224, 224, 3])})
+
+            print "img_out_softmax:",img_out_softmax
+            prediction_labels = np.argmax(img_out_softmax, axis=1)
+            print "label:",prediction_labels
 
 if __name__ == "__main__":
     import random
