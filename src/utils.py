@@ -5,6 +5,7 @@ import sys
 
 import tensorflow as tf
 
+
 def writeLog(root, name, string):
     if not os.path.exists(root): os.mkdir(root)
     file = r'%s/%s.log'%(root, name)
@@ -31,7 +32,7 @@ def mini_kmeans(root, name, X, outdim, factor=4):
     from sklearn.externals import joblib
     dstdir = os.path.join(root, name)
     if not os.path.exists(dstdir): os.mkdir(dstdir)
-    mfile = os.path.join(dstdir, r"kth_kmeans_r9_k%d.m" % (outdim))
+    mfile = os.path.join(dstdir, r"kth_kmeans_r9_k%d_m%d.m" % (outdim, outdim * factor))
     if not os.path.exists(mfile):
         from sklearn.cluster import KMeans
         idx = random.sample([i for i in range(X.shape[0])], outdim * factor)

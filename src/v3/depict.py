@@ -64,7 +64,7 @@ def train_network(graph, Z, T, batch_size, num_epochs, pb_file_path):
         sess.run(init)
         
         show_steps = 1
-        save_steps = 100
+        # save_steps = 100
         for epoch_index in range(num_epochs):
             num_samples = Z.shape[0]
             indices = np.arange(num_samples)
@@ -101,16 +101,17 @@ def train_network(graph, Z, T, batch_size, num_epochs, pb_file_path):
                 nmi = sklnmi(pys.flatten(), T.flatten())                
                 print("%s epoch: %10d cost: %.8e nmi: %.10f"%(dt.datetime.now(), epoch_index, loss/float(num_samples), nmi))
             
-            if not epoch_index % save_steps: 
+            # if not epoch_index % save_steps: 
+            if not epoch_index % pow(10, len(str(epoch_index))-1): 
                 constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ["metrics/output", "func_04/cost"])
-                with tf.gfile.FastGFile(r"%s_%s.pb"%(pb_file_path, epoch_index), mode='wb') as f:
+                with tf.gfile.FastGFile(r"%s_e%s.pb"%(pb_file_path, epoch_index), mode='wb') as f:
                     f.write(constant_graph.SerializeToString())
 
 def valid_network(pb_file_path, Z, T, batch_size, epoch_index):
     with tf.Graph().as_default():
         output_graph_def = tf.GraphDef()
 
-        with open(r"%s_%s.pb"%(pb_file_path, epoch_index), "rb") as f:
+        with open(r"%s_e%s.pb"%(pb_file_path, epoch_index), "rb") as f:
             output_graph_def.ParseFromString(f.read())
             _ = tf.import_graph_def(output_graph_def, name="")
 
