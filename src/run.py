@@ -16,6 +16,12 @@ from v3 import dec
 from v3 import depict
 
 
+# global settings 
+num_epochs = 100 + 1
+numCenterList = [i for i in range(90, 150 + 1, 6)]
+numClusterList = [1<<i for i in range(7, 12 + 1, 1)]
+
+
 def valid(name):
     def bow(X, C):
         H = np.zeros((0,outdim))
@@ -45,14 +51,16 @@ def valid(name):
     Z2 = np.loadtxt(r"..\data\kth_xtest_r9.txt").astype('float32')
     T2 = np.loadtxt(r"..\data\kth_ytest_r9.txt").astype('int')
 
-    # global settings 
-    num_epochs = 10000
-    numCenterList = [i for i in range(90, 150+1, 6)]
-    numClusterList = [1<<i for i in range(7, 12+1, 1)]
+    # # global settings 
+    # num_epochs = 100
+    # numCenterList = [i for i in range(90, 120+1, 6)]
+    # numClusterList = [1<<i for i in range(7, 12+1, 1)]
 
     # model related
-    pb_file_path = '../model/%s/'%(name)
-    if not os.path.exists(pb_file_path): os.mkdir(pb_file_path)
+    pb_file_dir = '../model/%s/'%(name)
+    pb_file_path = '../model/%s/%s'%(name, name)
+    if not os.path.exists(pb_file_dir): os.mkdir(pb_file_dir)
+    
     if name == "depict": 
         valid_network = depict.valid_network
     elif name == "dec": 
@@ -63,12 +71,10 @@ def valid(name):
     results = list()
     for numCenter in numCenterList:
         for numCluster in numClusterList:
-            outdim = numCluster
-            network = rbfnn.RBFNN(indim=outdim, numCenter=120, outdim=6)
-            n_pb_file_path = pb_file_path + '%s_m%d_k%d'%(name, numCenter, numCluster)
+            network = rbfnn.RBFNN(indim=numCluster, numCenter=numCenter, outdim=6)
 
             # kmeans transformation 
-            kms = utils.mini_kmeans('../model', 'kmeans', Z1, outdim, factor=4)
+            kms = utils.mini_kmeans('../model', 'kmeans', Z1, numCluster, factor=4)
             KT1 = np.reshape(kms.predict(Z1), (-1, 1))
             KT2 = np.reshape(kms.predict(Z2), (-1, 1))
             
@@ -78,77 +84,79 @@ def valid(name):
                 
                 # training set 
                 num_samples,num_featues = Z1.shape
-                batch_size = int(outdim * 4)
+                batch_size = int(numCluster * 4)
                 num_batches = int(math.ceil(num_samples / float(batch_size)))
                 msg = "%s num_samples: %d num_features: %d batch_size: %d num_batches: %d"%(
                     dt.datetime.now(), num_samples, num_featues, batch_size, num_batches)
                 print(msg)
-                A1, _, _  = valid_network(n_pb_file_path, Z1, KT1, batch_size, epoch_index)
+                A1, _, _  = valid_network(pb_file_path, Z1, KT1, batch_size, numCluster, epoch_index)
 
                 # validate set 
                 num_samples, num_featues = Z2.shape
-                batch_size = int(outdim * 4)
+                batch_size = int(numCluster * 4)
                 num_batches = int(math.ceil(num_samples / float(batch_size)))
                 msg = "%s num_samples: %d num_features: %d batch_size: %d num_batches: %d" % (
                     dt.datetime.now(), num_samples, num_featues, batch_size, num_batches)
                 print(msg)
-                A2, _, _ = valid_network(n_pb_file_path, Z2, KT2, batch_size, epoch_index)
+                A2, _, _ = valid_network(pb_file_path, Z2, KT2, batch_size, numCluster, epoch_index)
+
+                if A1.shape and A2.shape: continue 
 
                 # classifier
                 H1, H2 = bow(A1, C1), bow(A2, C2)
-                H1, H2 = sklscale(H1, (-1,1), axis=1)
+                H1, H2 = sklscale(H1, (-1,1), axis=1), sklscale(H2, (-1,1), axis=1)
                 network.fit(H1, T1)
                 O1 = network.predict(H1)
                 O2 = network.predict(H2)
                 metrics = [
                     numCenter, numCluster, epoch_index, 
-                    calc_err(O1, T1), calc_acc(O1, T1), calc_err(O1, T1), calc_acc(O2, T2), 0.25
+                    calc_err(O1, T1), calc_acc(O1, T1), calc_err(O2, T2), calc_acc(O2, T2), 0.25
                 ]
                 results.append(metrics)
                 print('%s m: %4d k: %4d e: %8d err_1: %.8e, acc_1: %.10f, err_1: %.8e, acc_1: %.10f, stsm: %.10f'%(dt.datetime.now(),
                     numCenter, numCluster, epoch_index, 
-                    calc_err(O1, T1), calc_acc(O2, T2), calc_err(O1, T1), calc_acc(O2, T2), 0.25))
+                    calc_err(O1, T1), calc_acc(O2, T2), calc_err(O2, T2), calc_acc(O2, T2), 0.25))
     np.savetxt('../data/result.txt', np.array(results))
 
-def train(name, indim=162, outdim=4096):
+def train(name):
     # load datasets 
-    Z = np.loadtxt('../data/kth_xtrain_r9.txt')
+    Z = np.loadtxt('../data/kth_xtrain_r9.txt').astype('int')
 
-    # global settings 
-    num_epochs = 10000
-    numCenterList = [i for i in range(90, 150+1, 6)]
-    numClusterList = [1<<i for i in range(7, 12+1, 1)]
+    # # global settings 
+    # num_epochs = 100
+    # numCenterList = [i for i in range(90, 150+1, 6)]
+    # numClusterList = [1<<i for i in range(7, 12+1, 1)]
 
     # model related
-    pb_file_path = '../model/%s/'%(name)
-    for numCenter in numCenterList:
-        for numCluster in numClusterList:
-            n_pb_file_path = pb_file_path + '%s_m%d_k%d'%(name, numCenter, numCluster)
-            outdim = numCenter
+    pb_file_dir = '../model/%s/'%(name)
+    pb_file_path = '../model/%s/%s'%(name, name)
+    if not os.path.exists(pb_file_dir): os.mkdir(pb_file_dir)
 
-            # kmeans transformation 
-            kms = utils.mini_kmeans('../model', 'kmeans', Z, outdim, factor=4)
-            T = np.reshape(kms.predict(Z), (-1,1))
-            ws = np.dot(np.linalg.pinv(Z), T)
-            us = kms.cluster_centers_.astype(np.float32)
+    for numCluster in numClusterList:
+        # kmeans transformation 
+        kms = utils.mini_kmeans('../model', 'kmeans', Z, numCluster, factor=4)
+        T = np.reshape(kms.predict(Z), (-1,1))
+        ws = np.dot(np.linalg.pinv(Z), T)
+        us = kms.cluster_centers_.astype(np.float32)
+        print("%s ws: %s us: %s"%(dt.datetime.now(), ws.shape, us.shape))
 
-            if name == 'depict': 
-                network = depict.build_network(indim=indim, outdim=outdim)
-                train_network = depict.train_network
-            elif name == 'dec': 
-                network = dec.build_network(indim=indim, outdim=outdim)
-                train_network = dec.train_network
-            else: 
-                network = None 
-                train_network = None
+        if name == 'depict': 
+            network = depict.build_network(indim=Z.shape[1], outdim=numCluster)
+            train_network = depict.train_network
+        elif name == 'dec': 
+            network = dec.build_network(indim=Z.shape[1], outdim=numCluster)
+            train_network = dec.train_network
+        else: 
+            network = None 
+            train_network = None
 
-            num_samples, num_featues = Z.shape
-            batch_size = int(outdim * 4)
-            num_batches = int(math.ceil(num_samples / float(batch_size)))
-            msg = "%s num_samples: %d num_features: %d batch_size: %d num_batches: %d" % (
-                dt.datetime.now(), num_samples, num_featues, batch_size, num_batches)
-            print(msg)
-            train_network(network, Z, T, batch_size, num_epochs, n_pb_file_path)
+        num_samples, num_featues = Z.shape
+        batch_size = int(numCluster * 4)
+        num_batches = int(math.ceil(num_samples / float(batch_size)))
+        msg = "%s num_samples: %d num_features: %d batch_size: %d num_batches: %d" % (
+            dt.datetime.now(), num_samples, num_featues, batch_size, num_batches)
+        print(msg)
+        train_network(network, Z, T, batch_size, numCluster, num_epochs, pb_file_path)
 
 if __name__ == "__main__": 
     name = 'depict' 

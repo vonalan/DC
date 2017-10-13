@@ -9,6 +9,8 @@
 #     batch norminalization
 #     RNN
 
+import os 
+import sys 
 import math
 import datetime as dt
 
@@ -56,7 +58,7 @@ def build_network(indim=4096, outdim=6, prior=None, W=None):
     
     return dict(Z=Z, Y=Y, T=T, optimizer=optimizer, cost=cost)
 
-def train_network(graph, Z, T, batch_size, num_epochs, pb_file_path):
+def train_network(graph, Z, T, batch_size, numCluster, num_epochs, pb_file_path):
     init = tf.global_variables_initializer()
 
     # config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
@@ -99,19 +101,24 @@ def train_network(graph, Z, T, batch_size, num_epochs, pb_file_path):
                     pys = np.vstack((pys, np.reshape(ys, (-1,1))))
                     loss += cost * (end - begin)
                 nmi = sklnmi(pys.flatten(), T.flatten())                
-                print("%s epoch: %10d cost: %.8e nmi: %.10f"%(dt.datetime.now(), epoch_index, loss/float(num_samples), nmi))
+                print("%s k: %4d e: %8d cost: %.8e nmi: %.10f"%(dt.datetime.now(), numCluster, epoch_index, loss/float(num_samples), nmi))
             
             # if not epoch_index % save_steps: 
             if not epoch_index % pow(10, len(str(epoch_index))-1): 
+                x_pb_file_path = r"%s_k%d_e%d.pb"%(pb_file_path, numCluster, epoch_index)
+                # if os.path.exists(x_pb_file_path): continue 
                 constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ["metrics/output", "func_04/cost"])
-                with tf.gfile.FastGFile(r"%s_e%s.pb"%(pb_file_path, epoch_index), mode='wb') as f:
+                with tf.gfile.FastGFile(x_pb_file_path, mode='wb') as f:
                     f.write(constant_graph.SerializeToString())
 
-def valid_network(pb_file_path, Z, T, batch_size, epoch_index):
+def valid_network(pb_file_path, Z, T, batch_size, numCluster, epoch_index):
     with tf.Graph().as_default():
         output_graph_def = tf.GraphDef()
 
-        with open(r"%s_e%s.pb"%(pb_file_path, epoch_index), "rb") as f:
+        x_pb_file_path = r"%s_k%d_e%d.pb"%(pb_file_path, numCluster, epoch_index)
+        if not os.path.exists(x_pb_file_path): return (np.zeros((0,1)), 0.0, 0.0)
+        
+        with open(x_pb_file_path, "rb") as f:
             output_graph_def.ParseFromString(f.read())
             _ = tf.import_graph_def(output_graph_def, name="")
 
@@ -141,5 +148,5 @@ def valid_network(pb_file_path, Z, T, batch_size, epoch_index):
                 pys = np.vstack((pys, np.reshape(ys, (-1,1))))
                 loss += cost * (end - begin)
             nmi = sklnmi(pys.flatten(), T.flatten())        
-            print("%s epoch: %10d cost: %.8e nmi: %.10f"%(dt.datetime.now(), 0, loss/float(num_samples), nmi))
-    return pys, loss/float(num_samples), nmi
+            print("%s k: %4d e: %8d cost: %.8e nmi: %.10f"%(dt.datetime.now(), numCluster, epoch_index, loss/float(num_samples), nmi))
+    return (pys, loss/float(num_samples), nmi)
