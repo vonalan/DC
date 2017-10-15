@@ -4,24 +4,29 @@
 #   Anaconda3
 #   Tensorflow
 
+# feature works:
+#     moving average
+#     batch norminalization
+#     RNN
+
 import os
 import sys
-import random
+import math
+import datetime as dt
 
-import numpy as np 
+import numpy as np
 import tensorflow as tf
-
-import numpy as np 
-import tensorflow as tf 
 from tensorflow.python.framework import graph_util
+from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
 
 def build_network(indim=4096, outdim=6, U=None, a=1.0): 
-    Z = tf.placeholder(tf.float32, shape=[None, indim], name='input')
-    T = tf.placeholder(tf.int64, shape=[None, 1], name='label')
+    with tf.name_scope('placeholder') as scope: 
+        Z = tf.placeholder(tf.float32, shape=[None, indim], name='input')
+        T = tf.placeholder(tf.int64, shape=[None, 1], name='label')
 
     with tf.name_scope('func_01') as scope: 
-        U = tf.Variable(U)
+        U = tf.Variable(U, name='centroids')
 
         M1 = tf.reshape(tf.reduce_sum(tf.pow(Z, 2), axis=1), (-1, 1))
         M2 = tf.reshape(tf.reduce_sum(tf.pow(U, 2), axis=1), (1, outdim))
@@ -32,106 +37,117 @@ def build_network(indim=4096, outdim=6, U=None, a=1.0):
 
         N = tf.pow(D / a + 1, -((a + 1) / 2))
         D = tf.reshape(tf.reduce_sum(N, axis=1), (-1, 1))
-        Q = tf.div(N, D)
+        Q = tf.div(N, D, name='predicted_distribution')
 
     with tf.name_scope('func_03') as scope: 
         F = tf.reshape(tf.reduce_sum(Q, axis=0), (-1, outdim))
         N = tf.div(tf.pow(Q, 2), F)
         D = tf.reshape(tf.reduce_sum(N, axis=1), (-1, 1))
-        P = tf.div(N, D)
+        P = tf.div(N, D, name='target_distribution')
     
     with tf.name_scope('func_02') as scope: 
         C = tf.multiply(P, tf.log(tf.div(P, Q)))
         L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
-        L = tf.reduce_mean(L)
+        L = tf.reduce_mean(L, name='cost')
 
     with tf.name_scope('metrics') as scope: 
+        cost = L
         Y = tf.argmax(Q, axis=1, name='output')
         # ACC = tf.reduce_mean(tf.cast(tf.equal(Y, T), tf.float32))
         # NMI = 0.0
-    
-    cost = L
     optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
     
     return dict(Z=Z, Y=Y, T=T, optimizer=optimizer, cost=cost)
 
-if __name__ == "__main__":
-    import random
-    import datetime as dt
-
-    from sklearn.metrics import normalized_mutual_info_score as NMI
-    import sklearn.preprocessing as pre
-
-    import utils
-
-    # *****************************************************************
-    name = 'depict'
-    indim, outdim = 162, 4096 ###
-    # *****************************************************************
-
-    # *****************************************************************
-    X = np.loadtxt('../data/kth_xtrain_r9.txt')
-    # X = pre.minmax_scale(X,(0,1), axis=1) # distribution
-    # *****************************************************************
-
-    # *****************************************************************
-    kms = utils.mini_kmeans('../model', 'kmeans', X, outdim, factor=4)
-    kys = kms.predict(X)
-    T = np.reshape(kys, (-1,1))
-    # khs = np.histogram(kys, bins=outdim)[0]
-    # ws = np.dot(np.linalg.inv(X), kys)
-    us = kms.cluster_centers_.astype(np.float32)
-    # *****************************************************************
-
-    graph = build_network(indim=indim, outdim=outdim, U=us)
+def train_network(graph, Z, T, batch_size, numCluster, num_epochs, pb_file_path):
     init = tf.global_variables_initializer()
 
-    sess = tf.Session()
-    sess.run(init)
+    # config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
+    with tf.Session() as sess:
+        sess.run(init)
+        
+        show_steps = 1
+        # save_steps = 100
+        for epoch_index in range(num_epochs):
+            num_samples = Z.shape[0]
+            indices = np.arange(num_samples)
+            np.random.shuffle(indices)
+            num_batches = int(math.ceil(num_samples / float(batch_size)))
+            for batch_index in range(num_batches): 
+                begin = batch_index * batch_size
+                end = min((batch_index + 1) * batch_size, num_samples)
+                zs, ts = Z[indices[begin:end],:], T[indices[begin:end],:]
+                
+                sess.run([graph['optimizer']], feed_dict={
+                    graph['Z']: zs, 
+                    graph['T']: ts})
+            
+            if not epoch_index % show_steps: 
+                num_samples = Z.shape[0]
+                indices = np.arange(num_samples)
+                num_batches = int(math.ceil(num_samples / float(batch_size)))
+                
+                pys = np.zeros((0,1)) # .astype(np.float32) 
+                loss = 0.0
+                for batch_index in range(num_batches): 
+                    begin = batch_index * batch_size
+                    end = min((batch_index + 1) * batch_size, num_samples)
+                    zs, ts = Z[indices[begin:end],:], T[indices[begin:end],:]
+                    ys = sess.run(graph['Y'], feed_dict={
+                        graph['Z']: zs, 
+                        graph['T']: ts})
+                    cost = sess.run(graph['cost'], feed_dict={
+                        graph['Z']: zs, 
+                        graph['T']: ts})
+                    pys = np.vstack((pys, np.reshape(ys, (-1,1))))
+                    loss += cost * (end - begin)
+                nmi = sklnmi(pys.flatten(), T.flatten())                
+                print("%s k: %4d e: %8d cost: %.8e nmi: %.10f"%(dt.datetime.now(), numCluster, epoch_index, loss/float(num_samples), nmi))
+            
+            # if not epoch_index % save_steps: 
+            if not epoch_index % pow(10, len(str(epoch_index))-1): 
+                x_pb_file_path = r"%s_k%d_e%d.pb"%(pb_file_path, numCluster, epoch_index)
+                # if os.path.exists(x_pb_file_path): continue 
+                constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ["metrics/output", "func_02/cost"])
+                with tf.gfile.FastGFile(x_pb_file_path, mode='wb') as f:
+                    f.write(constant_graph.SerializeToString())
 
-    # *****************************************************************
-    m,n = X.shape
-    bs = int(outdim * 4)
-    nb = int(m/bs) + 1
-    msg = "%s m: %d n: %d batch_size: %d num_batch: %d"%(
-        dt.datetime.now(), m, n, bs, nb)
-    # *****************************************************************
-    print(msg)
-    epoch = 0
-    while True:
-        for i in range(nb):
-            idx = random.sample([i for i in range(m)], k=bs)
-            xs = X[idx,:]
-            ts = T[idx,:]
-            sess.run(graph['optimizer'], feed_dict={
-                graph['Z']: xs,
-                graph['T']: ts
-            })
+def valid_network(pb_file_path, Z, T, batch_size, numCluster, epoch_index):
+    with tf.Graph().as_default():
+        output_graph_def = tf.GraphDef()
 
-        if not epoch % 1:
-            idx = random.sample([i for i in range(m)], k=bs)
-            xs = X[idx, :]
-            ts = T[idx, :]
-            loss = sess.run(graph['cost'], feed_dict={
-                graph['Z']: xs,
-                graph['T']: ts
-            })
+        x_pb_file_path = r"%s_k%d_e%d.pb"%(pb_file_path, numCluster, epoch_index)
+        if not os.path.exists(x_pb_file_path): return (np.zeros((0,1)), 0.0, 0.0)
+        
+        with open(x_pb_file_path, "rb") as f:
+            output_graph_def.ParseFromString(f.read())
+            _ = tf.import_graph_def(output_graph_def, name="")
 
-            nmi1 = 0.5
-            nmi2 = 0.5
-            nmi3 = 0.5
-
-            log = '%s  epoch: %10d  cost: %.8e nmi-1: %.8f nmi-2: %.8f nmi-3: %.8f' % (
-                dt.datetime.now(), epoch, loss, nmi1, nmi2, nmi3)
-            # utils.writeLog('../log', name, log)
-            print(log)
-        #
-        #
-        # if not epoch % 100:
-        #     nn.saveModel('../model', epoch)
-
-        epoch += 1
-
-        flag = False
-        if flag: break
-    print("optimization is finished! ")
+        # config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
+        with tf.Session() as sess:
+            init = tf.global_variables_initializer()
+            sess.run(init)
+            
+            input_0 = sess.graph.get_tensor_by_name("placeholder/input:0")
+            output_0 = sess.graph.get_tensor_by_name("metrics/output:0")
+            cost_0 = sess.graph.get_tensor_by_name("func_02/cost:0")
+            
+            num_samples = Z.shape[0]
+            indices = np.arange(num_samples)
+            num_batches = int(math.ceil(num_samples / float(batch_size)))
+            
+            pys = np.zeros((0,1)) # .astype(np.float32) 
+            loss = 0.0
+            for batch_index in range(num_batches): 
+                begin = batch_index * batch_size
+                end = min((batch_index + 1) * batch_size, num_samples)
+                zs, ts = Z[indices[begin:end],:], T[indices[begin:end],:]
+                ys = sess.run(output_0, feed_dict={
+                    input_0: zs})
+                cost = sess.run(cost_0, feed_dict={
+                    input_0: zs})
+                pys = np.vstack((pys, np.reshape(ys, (-1,1))))
+                loss += cost * (end - begin)
+            nmi = sklnmi(pys.flatten(), T.flatten())        
+            print("%s k: %4d e: %8d cost: %.8e nmi: %.10f"%(dt.datetime.now(), numCluster, epoch_index, loss/float(num_samples), nmi))
+    return (pys, loss/float(num_samples), nmi)

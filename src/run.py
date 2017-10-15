@@ -6,6 +6,7 @@ import math
 import datetime as dt
 
 import numpy as np
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import mean_squared_error as sklmse
 from sklearn.preprocessing import minmax_scale as sklscale
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
@@ -17,13 +18,19 @@ from v3 import depict
 
 
 # global settings 
-num_epochs = 100 + 1
-numCenterList = [i for i in range(90, 150 + 1, 6)]
-numClusterList = [1<<i for i in range(7, 12 + 1, 1)]
+num_classes = 6
+
+# num_epochs = 1000 + 1
+# numCenterList = [i for i in range(90, 150 + 1, 6)]
+# numClusterList = [1<<i for i in range(7, 12 + 1, 1)]
+
+num_epochs = 10000 + 1
+numCenterList = [i for i in range(120, 120 + 1, 6)]
+numClusterList = [1<<i for i in range(10, 10 + 1, 1)]
 
 
 def valid(name):
-    def bow(X, C):
+    def bow(X, C, outdim=4096):
         H = np.zeros((0,outdim))
         e = 0
         for c in C:
@@ -42,7 +49,7 @@ def valid(name):
         acc = eidx.sum() / eidx.shape[0]
         return acc
 
-    # load datesets 
+    # # load datesets
     C1 = np.loadtxt(r"..\data\kth_ctrain_r9.txt").astype('int')
     Z1 = np.loadtxt(r"..\data\kth_xtrain_r9.txt").astype('float32')
     T1 = np.loadtxt(r"..\data\kth_ytrain_r9.txt").astype('int')
@@ -50,6 +57,9 @@ def valid(name):
     C2 = np.loadtxt(r"..\data\kth_ctest_r9.txt").astype('int')
     Z2 = np.loadtxt(r"..\data\kth_xtest_r9.txt").astype('float32')
     T2 = np.loadtxt(r"..\data\kth_ytest_r9.txt").astype('int')
+
+    # debug
+    # C1, Z1, T1 = C2, Z2, T2
 
     # # global settings 
     # num_epochs = 100
@@ -68,13 +78,13 @@ def valid(name):
     else: 
         valid_network = None
 
-    results = list()
+    # results = list()
     for numCenter in numCenterList:
         for numCluster in numClusterList:
-            network = rbfnn.RBFNN(indim=numCluster, numCenter=numCenter, outdim=6)
+            network = rbfnn.RBFNN(indim=numCluster, numCenter=numCenter, outdim=num_classes)
 
             # kmeans transformation 
-            kms = utils.mini_kmeans('../model', 'kmeans', Z1, numCluster, factor=4)
+            kms = utils.mini_kmeans('../model', 'kmeans', X=Z1, outdim=numCluster, factor=4)
             KT1 = np.reshape(kms.predict(Z1), (-1, 1))
             KT2 = np.reshape(kms.predict(Z2), (-1, 1))
             
@@ -100,27 +110,34 @@ def valid(name):
                 print(msg)
                 A2, _, _ = valid_network(pb_file_path, Z2, KT2, batch_size, numCluster, epoch_index)
 
-                if A1.shape and A2.shape: continue 
+                if not (A1.shape[0] and A2.shape[0]): continue
 
                 # classifier
-                H1, H2 = bow(A1, C1), bow(A2, C2)
+                H1, H2 = bow(A1, C1, outdim=numCluster), bow(A2, C2, outdim=numCluster)
                 H1, H2 = sklscale(H1, (-1,1), axis=1), sklscale(H2, (-1,1), axis=1)
                 network.fit(H1, T1)
                 O1 = network.predict(H1)
                 O2 = network.predict(H2)
-                metrics = [
+                # metrics = [
+                #     numCenter, numCluster, epoch_index, 
+                #     calc_err(O1, T1), calc_acc(O1, T1), calc_err(O2, T2), calc_acc(O2, T2), 0.25
+                # ]
+                # results.append(metrics)
+                #  print('%s m: %4d k: %4d e: %8d err_1: %.8e, acc_1: %.10f, err_1: %.8e, acc_1: %.10f, stsm: %.10f'%(dt.datetime.now(),
+                #     numCenter, numCluster, epoch_index, 
+                #     calc_err(O1, T1), calc_acc(O2, T2), calc_err(O2, T2), calc_acc(O2, T2), 0.25))
+
+                metrics = "%d %d %d %f %f %f %f %f"%(
                     numCenter, numCluster, epoch_index, 
-                    calc_err(O1, T1), calc_acc(O1, T1), calc_err(O2, T2), calc_acc(O2, T2), 0.25
-                ]
-                results.append(metrics)
-                print('%s m: %4d k: %4d e: %8d err_1: %.8e, acc_1: %.10f, err_1: %.8e, acc_1: %.10f, stsm: %.10f'%(dt.datetime.now(),
-                    numCenter, numCluster, epoch_index, 
-                    calc_err(O1, T1), calc_acc(O2, T2), calc_err(O2, T2), calc_acc(O2, T2), 0.25))
-    np.savetxt('../data/result.txt', np.array(results))
+                    calc_err(O1, T1).sum(), calc_acc(O1, T1), calc_err(O2, T2).sum(), calc_acc(O2, T2), 0.25)
+                utils.writeLog("../data", "%s_results"%(name), metrics)
+                print('%s m: %4d k: %4d e: %8d err_1: %.8e, acc_1: %.10f, err_2: %.8e, acc_2: %.10f, stsm: %.10f'%(dt.datetime.now(),numCenter, numCluster, epoch_index,
+                    calc_err(O1, T1).sum(), calc_acc(O1, T1), calc_err(O2, T2).sum(), calc_acc(O2, T2), 0.25))
+    # np.savetxt('../data/result.txt', np.array(results))
 
 def train(name):
     # load datasets 
-    Z = np.loadtxt('../data/kth_xtrain_r9.txt').astype('int')
+    Z = np.loadtxt(r'../data/kth_xtrain_r9.txt').astype('int')
 
     # # global settings 
     # num_epochs = 100
@@ -134,10 +151,18 @@ def train(name):
 
     for numCluster in numClusterList:
         # kmeans transformation 
-        kms = utils.mini_kmeans('../model', 'kmeans', Z, numCluster, factor=4)
+        kms = utils.mini_kmeans('../model', 'kmeans', X=Z, outdim=numCluster, factor=4)
         T = np.reshape(kms.predict(Z), (-1,1))
-        ws = np.dot(np.linalg.pinv(Z), T)
+        # ''''''
+        # tset = set(T.flatten().tolist())
+        # print("len(tset): %d"%(len(tset)))
+        # T = OneHotEncoder(n_values=numCluster).fit_transform(T)
+        # print(T.shape)
+        # ws = np.dot(np.linalg.pinv(Z), T)
+        # ''''''
+        ws = np.zeros((Z.shape[1], numCluster))
         us = kms.cluster_centers_.astype(np.float32)
+        print(ws.shape, us.shape)
         print("%s ws: %s us: %s"%(dt.datetime.now(), ws.shape, us.shape))
 
         if name == 'depict': 
@@ -159,6 +184,10 @@ def train(name):
         train_network(network, Z, T, batch_size, numCluster, num_epochs, pb_file_path)
 
 if __name__ == "__main__": 
-    name = 'depict' 
-    train(name)
-    # valid(name)
+    name = sys.argv[1]
+    mode = sys.argv[2]
+
+    if mode == 'train': 
+        train(name)
+    if mode == 'valid': 
+        valid(name)

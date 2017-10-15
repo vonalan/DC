@@ -27,18 +27,18 @@ def build_network(indim=4096, outdim=6, prior=None, W=None):
 
     with tf.name_scope('func_01') as scope: 
         W = tf.Variable(tf.random_normal([indim, outdim]), name='weights')
-        P = tf.nn.softmax(tf.matmul(Z, W), name=scope)
+        P = tf.nn.softmax(tf.matmul(Z, W), name='predicted_distribution')
 
     with tf.name_scope('func_07') as scope: 
         N = tf.reshape(tf.reduce_sum(P, axis=0), (-1, outdim))
         N = tf.div(P, tf.pow(N, 0.5))
         D = tf.reshape(tf.reduce_sum(N, 1), (-1, 1))
-        Q = tf.div(N, D)
+        Q = tf.div(N, D, name='target_distribution')
     
     with tf.name_scope('func_03') as scope: 
         prior = [1 / float(outdim)] * outdim
-        U = tf.reshape(tf.constant(prior), (-1, outdim))
-        F = tf.reshape(tf.reduce_mean(Q, axis=0), (-1, outdim))
+        U = tf.reshape(tf.constant(prior), (-1, outdim), name='prior_distribution')
+        F = tf.reshape(tf.reduce_mean(Q, axis=0), (-1, outdim), name='posterior_distribution')
     
     with tf.name_scope('func_04') as scope: 
         C = tf.multiply(Q, tf.log(tf.div(Q, P)))
@@ -49,7 +49,7 @@ def build_network(indim=4096, outdim=6, prior=None, W=None):
     # with tf.name_scope('func_02') as scope: 
     #     C = tf.multiply(Q, tf.log(tf.div(Q, P)))
     #     L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
-    #     L = tf.reduce_mean(L)
+    #     L = tf.reduce_mean(L, name='cost')
 
     with tf.name_scope('metrics') as scope: 
         cost = L 
@@ -134,7 +134,7 @@ def valid_network(pb_file_path, Z, T, batch_size, numCluster, epoch_index):
             num_samples = Z.shape[0]
             indices = np.arange(num_samples)
             num_batches = int(math.ceil(num_samples / float(batch_size)))
-
+            
             pys = np.zeros((0,1)) # .astype(np.float32) 
             loss = 0.0
             for batch_index in range(num_batches): 
