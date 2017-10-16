@@ -40,19 +40,21 @@ def build_network(indim=4096, outdim=6, prior=None, W=None):
         U = tf.reshape(tf.constant(prior), (-1, outdim), name='prior_distribution')
         F = tf.reshape(tf.reduce_mean(Q, axis=0), (-1, outdim), name='posterior_distribution')
     
-    with tf.name_scope('func_04') as scope: 
-        C = tf.multiply(Q, tf.log(tf.div(Q, P)))
-        R = tf.multiply(Q, tf.log(tf.div(F, U)))
-        L = tf.reshape(tf.reduce_sum(C + R, axis=1), (-1, 1))
-        L = tf.reduce_mean(L, name='cost')
-    
-    # with tf.name_scope('func_02') as scope: 
+    # with tf.name_scope('func_04') as scope: 
     #     C = tf.multiply(Q, tf.log(tf.div(Q, P)))
+    #     R = tf.multiply(Q, tf.log(tf.div(F, U)))
+    #     L = tf.reshape(tf.reduce_sum(C + R, axis=1), (-1, 1))
+    
+    with tf.name_scope('func_02') as scope: 
+        C = tf.multiply(Q, tf.log(tf.div(Q, P)))
+        L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
+
+    # with tf.name_scope('func_08') as scope: 
+    #     C = tf.multiply(Q, tf.log(P))
     #     L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
-    #     L = tf.reduce_mean(L, name='cost')
 
     with tf.name_scope('metrics') as scope: 
-        cost = L 
+        cost = tf.reduce_mean(L, name='cost')
         Y = tf.argmax(P, axis=1, name='output')
     optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
     
@@ -107,7 +109,7 @@ def train_network(graph, Z, T, batch_size, numCluster, num_epochs, pb_file_path)
             if not epoch_index % pow(10, len(str(epoch_index))-1): 
                 x_pb_file_path = r"%s_k%d_e%d.pb"%(pb_file_path, numCluster, epoch_index)
                 # if os.path.exists(x_pb_file_path): continue 
-                constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ["metrics/output", "func_04/cost"])
+                constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ["metrics/output", "metrics/cost"])
                 with tf.gfile.FastGFile(x_pb_file_path, mode='wb') as f:
                     f.write(constant_graph.SerializeToString())
 
@@ -129,7 +131,7 @@ def valid_network(pb_file_path, Z, T, batch_size, numCluster, epoch_index):
             
             input_0 = sess.graph.get_tensor_by_name("placeholder/input:0")
             output_0 = sess.graph.get_tensor_by_name("metrics/output:0")
-            cost_0 = sess.graph.get_tensor_by_name("func_04/cost:0")
+            cost_0 = sess.graph.get_tensor_by_name("metrics/cost:0")
             
             num_samples = Z.shape[0]
             indices = np.arange(num_samples)

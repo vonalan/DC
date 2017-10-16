@@ -24,9 +24,10 @@ num_classes = 6
 # numCenterList = [i for i in range(90, 150 + 1, 6)]
 # numClusterList = [1<<i for i in range(7, 12 + 1, 1)]
 
-num_epochs = 10000 + 1
-numCenterList = [i for i in range(120, 120 + 1, 6)]
-numClusterList = [1<<i for i in range(10, 10 + 1, 1)]
+factor = -1 # factor <=0 | factor > 0
+num_epochs = 1000 + 1 # 1000 is enough! 
+numCenterList = [i for i in range(120, 120 + 1, 6)] # M = 120
+numClusterList = [1<<i for i in range(10, 12 + 1, 1)] # K=1024
 
 
 def valid(name):
@@ -84,10 +85,35 @@ def valid(name):
             network = rbfnn.RBFNN(indim=numCluster, numCenter=numCenter, outdim=num_classes)
 
             # kmeans transformation 
-            kms = utils.mini_kmeans('../model', 'kmeans', X=Z1, outdim=numCluster, factor=4)
+            kms = utils.kmeans('../model', 'kmeans', X=Z1, outdim=numCluster, factor=factor)
             KT1 = np.reshape(kms.predict(Z1), (-1, 1))
             KT2 = np.reshape(kms.predict(Z2), (-1, 1))
-            
+
+            '''NEW NEW NEW'''
+            # classifier
+            H1, H2 = bow(KT1, C1, outdim=numCluster), bow(KT2, C2, outdim=numCluster)
+            H1, H2 = sklscale(H1, (-1, 1), axis=1), sklscale(H2, (-1, 1), axis=1)
+            network.fit(H1, T1)
+            O1 = network.predict(H1)
+            O2 = network.predict(H2)
+            # metrics = [
+            #     numCenter, numCluster, epoch_index,
+            #     calc_err(O1, T1), calc_acc(O1, T1), calc_err(O2, T2), calc_acc(O2, T2), 0.25
+            # ]
+            # results.append(metrics)
+            #  print('%s m: %4d k: %4d e: %8d err_1: %.8e, acc_1: %.10f, err_1: %.8e, acc_1: %.10f, stsm: %.10f'%(dt.datetime.now(),
+            #     numCenter, numCluster, epoch_index,
+            #     calc_err(O1, T1), calc_acc(O2, T2), calc_err(O2, T2), calc_acc(O2, T2), 0.25))
+
+            metrics = "%d %d %d %f %f %f %f %f" % (
+                numCenter, numCluster, 0,
+                calc_err(O1, T1).sum(), calc_acc(O1, T1), calc_err(O2, T2).sum(), calc_acc(O2, T2), 0.25)
+            utils.writeLog("../data", "%s_results" % ('kmeans'), metrics)
+            print('%s m: %4d k: %4d e: %8d err_1: %.8e, acc_1: %.10f, err_2: %.8e, acc_2: %.10f, stsm: %.10f' % (
+            dt.datetime.now(), numCenter, numCluster, 0,
+            calc_err(O1, T1).sum(), calc_acc(O1, T1), calc_err(O2, T2).sum(), calc_acc(O2, T2), 0.25))
+            '''NEW NEW NEW'''
+
             for epoch_index in range(num_epochs):
                 if epoch_index % pow(10, len(str(epoch_index))-1): 
                     continue 
@@ -151,7 +177,7 @@ def train(name):
 
     for numCluster in numClusterList:
         # kmeans transformation 
-        kms = utils.mini_kmeans('../model', 'kmeans', X=Z, outdim=numCluster, factor=4)
+        kms = utils.kmeans('../model', 'kmeans', X=Z, outdim=numCluster, factor=factor)
         T = np.reshape(kms.predict(Z), (-1,1))
         # ''''''
         # tset = set(T.flatten().tolist())
