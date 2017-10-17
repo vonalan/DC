@@ -31,16 +31,15 @@ numClusterList = [1<<i for i in range(10, 12 + 1, 1)] # K=1024
 
 
 def valid(name):
-    def bow(X, C, outdim=4096):
-        H = np.zeros((0,outdim))
-        e = 0
-        for c in C:
-            s = e
-            e += c
-            xs = X[s:e,:]
-            hs = np.histogram(xs, bins=outdim)[0]
-            H = np.vstack((H, hs))
-        return np.array(H) 
+    def bow(CA, C, bins=4096):
+        Hist = np.zeros((0,bins))
+        begin = 0
+        for i in range(C.shape[0]):
+            end = begin + int(C[i])
+            hist = np.histogram(CA[begin:end,0], bins, range=(0, bins))[0]
+            Hist = np.vstack((Hist, hist))
+            begin = end
+        return Hist
     def calc_err(y_true, y_predict):
         return sklmse(y_true, y_predict, multioutput='raw_values')
     def calc_acc(y_true, y_predict):
@@ -51,13 +50,13 @@ def valid(name):
         return acc
 
     # # load datesets
-    C1 = np.loadtxt(r"..\data\kth_ctrain_r9.txt").astype('int')
-    Z1 = np.loadtxt(r"..\data\kth_xtrain_r9.txt").astype('float32')
-    T1 = np.loadtxt(r"..\data\kth_ytrain_r9.txt").astype('int')
+    C1 = np.loadtxt(r"..\data\kth_ctrain_r9.txt")
+    Z1 = np.loadtxt(r"..\data\kth_xtrain_r9.txt")
+    T1 = np.loadtxt(r"..\data\kth_ytrain_r9.txt")
     
-    C2 = np.loadtxt(r"..\data\kth_ctest_r9.txt").astype('int')
-    Z2 = np.loadtxt(r"..\data\kth_xtest_r9.txt").astype('float32')
-    T2 = np.loadtxt(r"..\data\kth_ytest_r9.txt").astype('int')
+    C2 = np.loadtxt(r"..\data\kth_ctest_r9.txt")
+    Z2 = np.loadtxt(r"..\data\kth_xtest_r9.txt")
+    T2 = np.loadtxt(r"..\data\kth_ytest_r9.txt")
 
     # debug
     # C1, Z1, T1 = C2, Z2, T2
@@ -91,7 +90,7 @@ def valid(name):
 
             '''NEW NEW NEW'''
             # classifier
-            H1, H2 = bow(KT1, C1, outdim=numCluster), bow(KT2, C2, outdim=numCluster)
+            H1, H2 = bow(KT1, C1, bins=numCluster), bow(KT2, C2, bins=numCluster)
             H1, H2 = sklscale(H1, (-1, 1), axis=1), sklscale(H2, (-1, 1), axis=1)
             network.fit(H1, T1)
             O1 = network.predict(H1)
@@ -139,7 +138,7 @@ def valid(name):
                 if not (A1.shape[0] and A2.shape[0]): continue
 
                 # classifier
-                H1, H2 = bow(A1, C1, outdim=numCluster), bow(A2, C2, outdim=numCluster)
+                H1, H2 = bow(A1, C1, bins=numCluster), bow(A2, C2, bins=numCluster)
                 H1, H2 = sklscale(H1, (-1,1), axis=1), sklscale(H2, (-1,1), axis=1)
                 network.fit(H1, T1)
                 O1 = network.predict(H1)
