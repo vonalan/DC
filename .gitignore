@@ -1,6 +1,6 @@
 *.zip
-*.avi
-*.mp4
+# *.avi
+# *.mp4
 *.exe
 *.jpg
 *.png
