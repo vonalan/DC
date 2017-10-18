@@ -50,7 +50,7 @@ def build_network(indim=4096, outdim=6, prior=None, W=None):
         L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
 
     # with tf.name_scope('func_08') as scope: 
-    #     C = tf.multiply(Q, tf.log(P))
+    #     C = -tf.multiply(Q, tf.log(P))
     #     L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
 
     with tf.name_scope('metrics') as scope: 
