@@ -51,7 +51,7 @@ def build_network(indim=4096, outdim=6, U=None, a=1.0):
         # L = tf.reduce_mean(L, name='cost')
 
     with tf.name_scope('metrics') as scope: 
-        L = tf.reduce_mean(L, name='cost')
+        cost = tf.reduce_mean(L, name='cost')
         Y = tf.argmax(Q, axis=1, name='output')
         # ACC = tf.reduce_mean(tf.cast(tf.equal(Y, T), tf.float32))
         # NMI = 0.0
@@ -62,8 +62,8 @@ def build_network(indim=4096, outdim=6, U=None, a=1.0):
 def train_network(graph, Z, T, batch_size, numCluster, num_epochs, pb_file_path):
     init = tf.global_variables_initializer()
 
-    # config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
-    with tf.Session() as sess:
+    config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
+    with tf.Session(config=config) as sess:
         sess.run(init)
         
         show_steps = 1
@@ -123,8 +123,8 @@ def valid_network(pb_file_path, Z, T, batch_size, numCluster, epoch_index):
             output_graph_def.ParseFromString(f.read())
             _ = tf.import_graph_def(output_graph_def, name="")
 
-        # config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
-        with tf.Session() as sess:
+        config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
+        with tf.Session(config=config) as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
             
