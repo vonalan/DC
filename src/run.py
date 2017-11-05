@@ -194,7 +194,7 @@ def train(name):
             network = depict.build_network(indim=Z.shape[1], outdim=numCluster)
             train_network = depict.train_network
         elif name == 'dec': 
-            network = dec.build_network(indim=Z.shape[1], outdim=numCluster)
+            network = dec.build_network(indim=Z.shape[1], outdim=numCluster, U=us)
             train_network = dec.train_network
         else: 
             network = None 
