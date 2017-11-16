@@ -91,20 +91,20 @@ def build_infer_graph():
 #       infer_model.infer(infer_sess)
 
 if __name__ == "__main__":
-  # train_filenames, train_iterator, train_elements = read_data_from_text(shuffle=True)
-  #
-  # sess = tf.Session()
-  # sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'F:\Users\Kingdom\Desktop\GIT\DC\data\kth_xrand_r9_reduce.txt']})
-  # while True:
-  #   try:
-  #     print(sess.run(train_elements))
-  #   except Exception:
-  #     break
-  #   break
+  train_filenames, train_iterator, train_elements = read_data_from_text(shuffle=True)
 
-  tfstr = tf.constant([b'2012 2012 2012'])
-  tfstr = tf.string_split(tfstr)
-  tfstr = tf.map_fn(lambda x:tf.string_to_number(x), tfstr.values)
-  # tfstr = tf.string_to_number(tfstr)
   sess = tf.Session()
-  print(sess.run(tfstr))
+  sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'F:\Users\Kingdom\Desktop\GIT\DC\data\kth_xrand_r9_reduce.txt']})
+  while True:
+    try:
+      print(sess.run(train_elements))
+    except Exception:
+      break
+    break
+
+  # tfstr = tf.constant(['2012 2012 2012'])
+  # tfstr1 = tf.string_split(tfstr, delimiter=' ')
+  # tfstr = tf.map_fn(lambda x:tf.string_to_number(x), tfstr.values)
+  # # tfstr = tf.string_to_number(tfstr)
+  # sess = tf.Session()
+  # print(sess.run(tfstr))
