@@ -13,13 +13,14 @@ import os
 import sys 
 import math
 import datetime as dt
+import itertools
 
 import numpy as np 
 import tensorflow as tf 
 from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
-def read_data_from_text(filenames=None, shuffle=False):
+def read_data_from_text(filenames=None, shuffle=False, batch_size=1):
   filenames = tf.placeholder(tf.string, shape=[None])
   dataset = tf.data.TextLineDataset(filenames)
   # dataset = dataset.map(lambda item : tf.string_split(item, " "))
@@ -32,6 +33,9 @@ def read_data_from_text(filenames=None, shuffle=False):
 
   if shuffle:
     pass
+
+  if batch_size > 1:
+      pass
 
   iterator = dataset.make_initializable_iterator()
   next_elements = iterator.get_next()
@@ -85,26 +89,32 @@ def build_train_graph(input_dim, output_dim, func=''):
                 C = tf.multiply(Q, tf.log(tf.div(Q, P)))
                 L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
                 cost = tf.reduce_mean(L, name='cost')
+    tf.summary.scalar('training cost', cost)
     optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
     return input, optimizer
 
 def build_eval_graph(input_dim, output_dim):
-    input = tf.placeholder(data_type, shape=[None, output_dim], name='eval')
+    input = tf.placeholder(data_type, shape=[None, output_dim], name='eval_input')
+    label = tf.placeholder(tf.int32, shape=[None, 128], name='eval_label')
     with tf.variable_scope('depict', reuse=True):
         graph = build_depict_graph(input, [input_dim, output_dim], [output_dim])
-    with tf.variable_scope('output'):
+    with tf.variable_scope('eval_output'):
         P = graph
         output = tf.argmax(P, axis=1, name='output')
-    return input, output
+    with tf.variable_scope('eval_metrics'):
+        nmi = tf.constant(0)
+        tf.summary.scalar('validation nmi', nmi)
+    return input, label, output
 
-def build_infer_graph():
-    input = tf.placeholder(data_type, shape=[1, output_dim], name='eval')
+def build_infer_graph(input_dim, output_dim):
+    input = tf.placeholder(data_type, shape=[1, output_dim], name='infer_input')
+    label = tf.placeholder(tf.int32, shape=[None, 128], name='infer_label')
     with tf.variable_scope('depict', reuse=True):
         graph = build_depict_graph(input, [input_dim, output_dim], [output_dim])
-    with tf.variable_scope('output'):
+    with tf.variable_scope('infer_output'):
         P = graph
         output = tf.argmax(P, axis=1, name='output')
-    return input, output
+    return input, label, output
 
 def main(_):
     train_graph = tf.Graph()
@@ -112,44 +122,45 @@ def main(_):
     infer_graph = tf.Graph()
 
     with train_graph.as_default():
-        train_filenames, train_iterator, train_elements = read_data_from_text()
+        train_filenames, train_iterator, train_elements = \
+            read_data_from_text(shuffle=True, batch_size=100)
         train_input, optimizer = build_train_graph(input_dim, output_dim)
         initializer = tf.global_variables_initializer()
 
     with eval_graph.as_default():
-        eval_filenames, eval_iterator, eval_elements = read_data_from_text()
-        eval_input, eval_output = build_eval_graph()
+        eval_filenames, eval_iterator, eval_elements = \
+            read_data_from_text(batch_size=100)
+        eval_input, eval_label, eval_output = build_eval_graph(input_dim, output_dim)
 
     with infer_graph.as_default():
-        infer_iterator, infer_inputs = ...
-        infer_model = BuildInferenceModel(infer_iterator)
+        infer_filenames, infer_iterator, infer_elements = \
+            read_data_from_text(batch_size=1)
+        infer_input, infer_label, infer_output = build_infer_graph(input_dim, output_dim)
 
     checkpoints_path = "/tmp/model/checkpoints"
 
     train_sess = tf.Session(graph=train_graph)
     eval_sess = tf.Session(graph=eval_graph)
     infer_sess = tf.Session(graph=infer_graph)
-    #
-    # train_sess.run(initializer)
-    # train_sess.run(train_iterator.initializer)
-    #
-    # for i in itertools.count():
-    #
-    #   train_model.train(train_sess)
-    #
-    #   if i % EVAL_STEPS == 0:
-    #     checkpoint_path = train_model.saver.save(train_sess, checkpoints_path, global_step=i)
-    #     eval_model.saver.restore(eval_sess, checkpoint_path)
-    #     eval_sess.run(eval_iterator.initializer)
-    #     while data_to_eval:
-    #       eval_model.eval(eval_sess)
-    #
-    #   if i % INFER_STEPS == 0:
-    #     checkpoint_path = train_model.saver.save(train_sess, checkpoints_path, global_step=i)
-    #     infer_model.saver.restore(infer_sess, checkpoint_path)
-    #     infer_sess.run(infer_iterator.initializer, feed_dict={infer_inputs: infer_input_data})
-    #     while data_to_infer:
-    #       infer_model.infer(infer_sess)
+
+    train_sess.run(initializer)
+    train_sess.run(train_iterator.initializer, feed_dict={train_filenames: '../../data/x_1000_128.txt'})
+
+    for i in itertools.count():
+      train_sess.run(optimizer)
+      if i % EVAL_STEPS == 0:
+        checkpoint_path = train_model.saver.save(train_sess, checkpoints_path, global_step=i)
+        eval_model.saver.restore(eval_sess, checkpoint_path)
+        eval_sess.run(eval_iterator.initializer)
+        while data_to_eval:
+          eval_model.eval(eval_sess)
+
+      if i % INFER_STEPS == 0:
+        checkpoint_path = train_model.saver.save(train_sess, checkpoints_path, global_step=i)
+        infer_model.saver.restore(infer_sess, checkpoint_path)
+        infer_sess.run(infer_iterator.initializer, feed_dict={infer_inputs: infer_input_data})
+        while data_to_infer:
+          infer_model.infer(infer_sess)
 
 if __name__ == "__main__":
   train_filenames, train_iterator, train_elements = read_data_from_text(shuffle=True)
