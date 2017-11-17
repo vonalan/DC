@@ -22,7 +22,7 @@ from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
 def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
-    # filenames = tf.placeholder(tf.string, shape=[None,])
+    # filenames = tf.placeholder(tf.string, shape=[None])
     dataset = tf.data.TextLineDataset(filenames)
     dataset = dataset.map(lambda string: tf.string_split([string]).values)
     dataset = dataset.map(lambda string: tf.string_to_number(string, out_type=tf.float32))
