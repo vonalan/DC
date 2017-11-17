@@ -122,11 +122,17 @@ def main():
             time.sleep(1)
 
 if __name__ == "__main__":
-    # train_filenames, train_iterator, train_elements = build_text_line_reader(r'../../data/x_1000_128.txt',
-    #                                                                          shuffle=True, batch_size=100)
-    # train_sess = tf.Session()
-    # # train_sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'../../data/x_1000_128.txt']})
+    train_filenames, train_iterator, train_elements = \
+        build_text_line_reader(shuffle=True, batch_size=100)
+    train_sess = tf.Session()
+    train_sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'../../data/x_1000_128.txt']})
     # train_sess.run(train_iterator.initializer)
-    # for i in range(20):
-    #     print(train_sess.run(train_elements).shape)
-    main()
+    for i in range(30):
+        try:
+            print(i, train_sess.run(train_elements)[0,:4])
+        except tf.errors.OutOfRangeError:
+            train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
+            print(i, train_sess.run(train_elements)[0, :4])
+            # raise Exception()
+        time.sleep(1)
+    # main()
