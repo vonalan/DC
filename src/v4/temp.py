@@ -12,6 +12,7 @@
 import os 
 import sys 
 import math
+import time
 import datetime as dt
 import itertools
 
@@ -20,43 +21,39 @@ import tensorflow as tf
 from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
-def read_data_from_text(filenames=None, shuffle=False, batch_size=1):
-  filenames = tf.placeholder(tf.string, shape=[None])
-  dataset = tf.data.TextLineDataset(filenames)
-  # dataset = dataset.map(lambda item : tf.string_split(item, " "))
-  # dataset = dataset.map(lambda item : tf.string_to_number(item))
-  # dataset = dataset.map(lambda item : tf.to_float(item))
-
-  '''
-  map, shuffle, batch
-  '''
-
-  if shuffle:
-    pass
-
-  if batch_size > 1:
-      pass
-
-  iterator = dataset.make_initializable_iterator()
-  next_elements = iterator.get_next()
-  return filenames, iterator, next_elements
+def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
+    # filenames = tf.placeholder(tf.string, shape=[None,])
+    dataset = tf.data.TextLineDataset(filenames)
+    dataset = dataset.map(lambda string: tf.string_split([string]).values)
+    dataset = dataset.map(lambda string: tf.string_to_number(string, out_type=tf.float32))
+    if shuffle: dataset = dataset.shuffle(10000)
+    if batch_size > 1: dataset = dataset.batch(batch_size)
+    iterator = dataset.make_initializable_iterator()
+    next_elements = iterator.get_next()
+    return filenames, iterator, next_elements
 
 data_type = tf.float32
-input_dim = 1024
-output_dim = 128
+input_dim = 128
+output_dim = 10
+EVAL_STEPS=10
+INFER_STEPS=100
+class flags(object):
+    summaries_dir = './temp/logs/'
+FLAGS = flags()
+data_to_eval = True
 
-def build_depict_graph(input, kernel_shape, bias_shape):
+def build_depict_graph(inputs, kernel_shape, bias_shape):
     weights = tf.get_variable("weights", kernel_shape,
         initializer=tf.random_normal_initializer())
     biases = tf.get_variable("biases", bias_shape,
         initializer=tf.constant_initializer(0.0))
-    weighted_sum = tf.add(tf.matmul(input, weights), biases)
+    weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
     return tf.nn.softmax(weighted_sum)
 
-def build_train_graph(input_dim, output_dim, func=''):
-    input = tf.placeholder(data_type, shape=[None, output_dim], name='train_input')
+def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
+    inputs = tf.placeholder_with_default(defalut_inputs, shape=[None, input_dim], name='train_input')
     with tf.variable_scope('depict', reuse=False):
-        graph = build_depict_graph(input, [input_dim, output_dim], [output_dim])
+        graph = build_depict_graph(inputs, [input_dim, output_dim], [output_dim])
     with tf.variable_scope('target_distribution'):
         P = graph
         N = tf.reshape(tf.reduce_sum(P, axis=0), (-1, output_dim))
@@ -91,96 +88,110 @@ def build_train_graph(input_dim, output_dim, func=''):
                 cost = tf.reduce_mean(L, name='cost')
     tf.summary.scalar('training cost', cost)
     optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
-    return input, optimizer
+    return inputs, optimizer
 
-def build_eval_graph(input_dim, output_dim):
-    input = tf.placeholder(data_type, shape=[None, output_dim], name='eval_input')
-    label = tf.placeholder(tf.int32, shape=[None, 128], name='eval_label')
-    with tf.variable_scope('depict', reuse=True):
-        graph = build_depict_graph(input, [input_dim, output_dim], [output_dim])
+def build_eval_graph(default_inputs, input_dim, output_dim):
+    inputs = tf.placeholder_with_default(default_inputs, shape=[None, input_dim], name='eval_input')
+    with tf.variable_scope('depict', reuse=False):
+        graph = build_depict_graph(inputs, [input_dim, output_dim], [output_dim])
     with tf.variable_scope('eval_output'):
         P = graph
-        output = tf.argmax(P, axis=1, name='output')
-    with tf.variable_scope('eval_metrics'):
-        nmi = tf.constant(0)
-        tf.summary.scalar('validation nmi', nmi)
-    return input, label, output
+        outputs = tf.argmax(P, axis=1, name='output')
+    return inputs, outputs
 
-def build_infer_graph(input_dim, output_dim):
-    input = tf.placeholder(data_type, shape=[1, output_dim], name='infer_input')
-    label = tf.placeholder(tf.int32, shape=[None, 128], name='infer_label')
-    with tf.variable_scope('depict', reuse=True):
-        graph = build_depict_graph(input, [input_dim, output_dim], [output_dim])
-    with tf.variable_scope('infer_output'):
-        P = graph
-        output = tf.argmax(P, axis=1, name='output')
-    return input, label, output
+# def build_infer_graph(default_inputs, input_dim, output_dim):
+#     inputs = tf.placeholder_with_default(default_inputs, shape=[1, input_dim], name='infer_input')
+#     with tf.variable_scope('depict', reuse=False):
+#         graph = build_depict_graph(inputs, [input_dim, output_dim], [output_dim])
+#     with tf.variable_scope('infer_output'):
+#         P = graph
+#         outputs = tf.argmax(P, axis=1, name='output')
+#     return inputs, outputs
 
-def main(_):
+class Model(object):
+    def __init__(self):
+        graph = None
+        sess = None
+        saver = None
+    def train(self):
+        pass
+    def eval(self):
+        pass
+    def infer(self):
+        pass
+
+def main():
     train_graph = tf.Graph()
     eval_graph = tf.Graph()
     infer_graph = tf.Graph()
 
     with train_graph.as_default():
         train_filenames, train_iterator, train_elements = \
-            read_data_from_text(shuffle=True, batch_size=100)
-        train_input, optimizer = build_train_graph(input_dim, output_dim)
+            build_text_line_reader(r'../../data/x_1000_128.txt', shuffle=True, batch_size=100)
+        train_input, optimizer = build_train_graph(train_elements, input_dim, output_dim)
         initializer = tf.global_variables_initializer()
+        train_saver = tf.train.Saver()
+        train_merger = tf.summary.merge_all()
+        train_sess = tf.Session()
 
     with eval_graph.as_default():
         eval_filenames, eval_iterator, eval_elements = \
-            read_data_from_text(batch_size=100)
-        eval_input, eval_label, eval_output = build_eval_graph(input_dim, output_dim)
+            build_text_line_reader(r'../../data/x_1000_128_eval.txt', batch_size=100)
+        eval_input, eval_output = build_eval_graph(eval_elements, input_dim, output_dim)
+        eval_saver = tf.train.Saver()
+        eval_merger = tf.summary.merge_all()
+        eval_sess = tf.Session()
 
-    with infer_graph.as_default():
-        infer_filenames, infer_iterator, infer_elements = \
-            read_data_from_text(batch_size=1)
-        infer_input, infer_label, infer_output = build_infer_graph(input_dim, output_dim)
+    # with infer_graph.as_default():
+    #     infer_filenames, infer_iterator, infer_elements = \
+    #         build_text_line_reader(r'../../data/x_1000_128_infer.txt', batch_size=1)
+    #     infer_input, infer_output = build_infer_graph(infer_elements, input_dim, output_dim)
+    #     infer_saver = tf.train.Saver()
+    #     infer_sess = tf.Session()
 
     checkpoints_path = "/tmp/model/checkpoints"
-
-    train_sess = tf.Session(graph=train_graph)
-    eval_sess = tf.Session(graph=eval_graph)
-    infer_sess = tf.Session(graph=infer_graph)
+    # merged = tf.summary.merge_all()
+    train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train', train_graph)
+    validation_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/validation')
 
     train_sess.run(initializer)
-    train_sess.run(train_iterator.initializer, feed_dict={train_filenames: '../../data/x_1000_128.txt'})
-
-    for i in itertools.count():
-      train_sess.run(optimizer)
-      if i % EVAL_STEPS == 0:
-        checkpoint_path = train_model.saver.save(train_sess, checkpoints_path, global_step=i)
-        eval_model.saver.restore(eval_sess, checkpoint_path)
-        eval_sess.run(eval_iterator.initializer)
-        while data_to_eval:
-          eval_model.eval(eval_sess)
-
-      if i % INFER_STEPS == 0:
-        checkpoint_path = train_model.saver.save(train_sess, checkpoints_path, global_step=i)
-        infer_model.saver.restore(infer_sess, checkpoint_path)
-        infer_sess.run(infer_iterator.initializer, feed_dict={infer_inputs: infer_input_data})
-        while data_to_infer:
-          infer_model.infer(infer_sess)
+    # train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
+    train_sess.run(train_iterator.initializer)
+    # for i in itertools.count():
+    for i in range(10):
+        print(i)
+        # train_summary, _ = train_sess.run([merged, optimizer], feed_dict={train_input: sess.run(train_elements)})
+        # xs = train_sess.run(train_elements)
+        # print(xs.shape)
+        # train_sess.run(optimizer, feed_dict={train_input: xs})
+        train_sess.run(optimizer)
+        train_summary = train_sess.run(train_merger)
+        train_writer.add_summary(train_summary, i)
+        time.sleep(1)
+        if i % EVAL_STEPS == 0:
+            checkpoint_path = train_saver.save(train_sess, checkpoints_path, global_step=i)
+            eval_saver.restore(eval_sess, checkpoint_path)
+            eval_sess.run(eval_iterator.initializer)
+            while data_to_eval:
+                eval_sess.run(eval_output)
+                # histograms
+                # rbfnn
+                # err, acc
+                # eval_summary = eval_sess.run(eval_merger)
+                # validation_writer.add_summary(eval_summary, i)
+        # if i % INFER_STEPS == 0:
+        #     checkpoint_path = train_model.saver.save(train_sess, checkpoints_path, global_step=i)
+        #     infer_model.saver.restore(infer_sess, checkpoint_path)
+        #     infer_sess.run(infer_iterator.initializer, feed_dict={infer_inputs: infer_input_data})
+        #     while data_to_infer:
+        #       infer_model.infer(infer_sess)
 
 if __name__ == "__main__":
-  train_filenames, train_iterator, train_elements = read_data_from_text(shuffle=True)
-
-  sess = tf.Session()
-  sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'../../data/x_1000_128.txt']})
-
-  count = 0
-  while True:
-    try:
-      print(sess.run(train_elements))
-    except Exception:
-      break
-
-    if count > 10: break
-    count += 1
-
-  # tfstr = tf.constant(['2012 2012 2012'])
-  # tfstr1 = tf.string_split(tfstr, delimiter=' ')
-  # tfstr = tf.map_fn(lambda x:tf.string_to_number(x), tfstr.values)
-  # # tfstr = tf.string_to_number(tfstr)
-  # sess = tf.Session()
-  # print(sess.run(tfstr))
+    train_filenames, train_iterator, train_elements = build_text_line_reader(r'../../data/x_1000_128.txt',
+                                                                             shuffle=True, batch_size=100)
+    train_sess = tf.Session()
+    # train_sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'../../data/x_1000_128.txt']})
+    train_sess.run(train_iterator.initializer)
+    for i in range(20):
+        print(train_sess.run(train_elements).shape)
+    # main()
