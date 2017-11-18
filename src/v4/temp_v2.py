@@ -100,39 +100,41 @@ def main():
         initializer = tf.global_variables_initializer()
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
-        train_sess = tf.Session(config=tf.ConfigProto(device_count={'gpu':0}))
+        # train_sess = tf.Session(config=tf.ConfigProto(device_count={'gpu':0}))
+        train_sess = tf.Session()
 
-        checkpoints_path = "/tmp/model/checkpoints"
-        # merged = tf.summary.merge_all()
-        train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train', train_graph)
-        validation_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/validation')
+    checkpoints_path = "/tmp/model/checkpoints"
+    # merged = tf.summary.merge_all()
+    train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train', train_graph)
+    validation_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/validation')
 
-        train_sess.run(initializer)
-        train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
-        # train_sess.run(train_iterator.initializer)
-        for i in itertools.count():
-            print(i)
-            # train_summary, _ = train_sess.run([merged, optimizer], feed_dict={train_input: sess.run(train_elements)})
-            # xs = train_sess.run(train_elements)
-            # print(xs.shape)
-            # train_sess.run(optimizer, feed_dict={train_input: xs})
-            train_sess.run(optimizer)
-            train_summary = train_sess.run(train_merger)
-            train_writer.add_summary(train_summary, i)
-            time.sleep(1)
-
-if __name__ == "__main__":
-    train_filenames, train_iterator, train_elements = \
-        build_text_line_reader(shuffle=True, batch_size=100)
-    train_sess = tf.Session()
-    train_sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'../../data/x_1000_128.txt']})
+    train_sess.run(initializer)
+    train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
     # train_sess.run(train_iterator.initializer)
-    for i in range(30):
+    for i in itertools.count():
         try:
-            print(i, train_sess.run(train_elements)[0,:4])
+            xs = train_sess.run(train_elements)
         except tf.errors.OutOfRangeError:
             train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
-            print(i, train_sess.run(train_elements)[0, :4])
-            # raise Exception()
+            xs = train_sess.run(train_elements)
+        print(i, xs.shape)
+        # train_summary, _ = train_sess.run([optimizer, train_merger]) # if feed_dict is absent, this procedure will read twice from dataset
+        _, train_summary = train_sess.run([optimizer, train_merger], feed_dict={train_input: xs})
+        train_writer.add_summary(train_summary, i)
         time.sleep(1)
-    # main()
+
+if __name__ == "__main__":
+    # train_filenames, train_iterator, train_elements = \
+    #     build_text_line_reader(shuffle=True, batch_size=100)
+    # train_sess = tf.Session()
+    # train_sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'../../data/x_1000_128.txt']})
+    # # train_sess.run(train_iterator.initializer)
+    # for i in range(30):
+    #     try:
+    #         print(i, train_sess.run(train_elements)[0,:4])
+    #     except tf.errors.OutOfRangeError:
+    #         train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
+    #         print(i, train_sess.run(train_elements)[0, :4])
+    #         # raise Exception()
+    #     time.sleep(1)
+    main()
