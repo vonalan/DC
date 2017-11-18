@@ -77,7 +77,7 @@ def build_train_graph(defalut_inputs, us, input_dim, output_dim):
             cost = tf.reduce_mean(L, name='cost')
     tf.summary.scalar('training_cost', cost)
     optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
-    return inputs, optimizer
+    return inputs, cost, optimizer
 
 def main():
     if(not os.path.exists('../../data/x_1000_128_kmeans_10.txt')):
@@ -92,7 +92,7 @@ def main():
     with train_graph.as_default():
         train_filenames, train_iterator, train_elements = \
             build_text_line_reader(shuffle=True, batch_size=100)
-        train_input, optimizer = build_train_graph(train_elements, kms_centroids, input_dim, output_dim)
+        train_input, train_cost, optimizer = build_train_graph(train_elements, kms_centroids, input_dim, output_dim)
         # dec_centroids, train_input, optimizer = build_train_graph(train_elements, input_dim, output_dim)
         # assign_centroids = tf.assign(dec_centroids, kms_centroids)
         initializer = tf.global_variables_initializer()
@@ -115,11 +115,12 @@ def main():
         except tf.errors.OutOfRangeError:
             train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
             xs = train_sess.run(train_elements)
-        print(i, xs.shape)
+        # print(i, xs.shape)
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
         _, train_summary = train_sess.run([optimizer, train_merger], feed_dict={train_input: xs})
         train_writer.add_summary(train_summary, i)
-        time.sleep(1)
+        print('epoch: %6d, training cost: %.8f'%(i, train_cost))
+        # time.sleep(1)
 
 if __name__ == "__main__":
     # train_filenames, train_iterator, train_elements = \
