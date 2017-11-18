@@ -89,14 +89,14 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
                 cost = tf.reduce_mean(L, name='cost')
     tf.summary.scalar('training_cost', cost)
     optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
-    return inputs, optimizer
+    return inputs, cost, optimizer
 
 def main():
     train_graph = tf.Graph()
     with train_graph.as_default():
         train_filenames, train_iterator, train_elements = \
             build_text_line_reader(shuffle=True, batch_size=100)
-        train_input, optimizer = build_train_graph(train_elements, input_dim, output_dim)
+        train_input, train_cost, optimizer = build_train_graph(train_elements, input_dim, output_dim)
         initializer = tf.global_variables_initializer()
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
@@ -117,11 +117,12 @@ def main():
         except tf.errors.OutOfRangeError:
             train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
             xs = train_sess.run(train_elements)
-        print(i, xs.shape)
+        # print(i, xs.shape)
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
-        _, train_summary = train_sess.run([optimizer, train_merger], feed_dict={train_input: xs})
+        _, train_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger], feed_dict={train_input: xs})
         train_writer.add_summary(train_summary, i)
-        time.sleep(1)
+        print('epoch: %6d, training cost: %.8f'%(i, train_cost))
+        # time.sleep(1)
 
 if __name__ == "__main__":
     # train_filenames, train_iterator, train_elements = \
