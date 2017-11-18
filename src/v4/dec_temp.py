@@ -85,7 +85,8 @@ def main():
             fit(np.loadtxt('../../data/x_1000_128.txt')). \
             cluster_centers_.astype(np.float32)
         np.savetxt('../../data/x_1000_128_kmeans_10.txt', kms_centroids)
-    else: kms_centroids = np.loadtxt('../../data/x_1000_128_kmeans_10.txt')
+    else:
+        kms_centroids = np.loadtxt('../../data/x_1000_128_kmeans_10.txt').astype(np.float32)
 
     train_graph = tf.Graph()
     with train_graph.as_default():
