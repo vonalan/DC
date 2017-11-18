@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="c247f049-e989-4fd8-873c-ec48e32c576f" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="" />
-    </list>
+    <list default="true" id="c247f049-e989-4fd8-873c-ec48e32c576f" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -157,7 +155,14 @@
       <option name="project" value="LOCAL" />
       <updated>1510975350128</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="d">
+      <created>1510978398487</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1510978398487</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -215,7 +220,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="a" />
-    <option name="LAST_COMMIT_MESSAGE" value="a" />
+    <MESSAGE value="d" />
+    <option name="LAST_COMMIT_MESSAGE" value="d" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
