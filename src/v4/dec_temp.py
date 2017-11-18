@@ -48,7 +48,8 @@ def build_dec_graph(inputs, us, output_dim, a=1):
     # U = tf.Variable(U, name='centroids')
     centroids = tf.get_variable('centroids', dtype=data_type,
                                 initializer=tf.constant(us))
-
+    # a tensorflow implementation of
+    # sklearn.metrics.pairwise.pairwise_distances()
     M1 = tf.reshape(tf.reduce_sum(tf.pow(inputs, 2), axis=1), (-1, 1))
     M2 = tf.reshape(tf.reduce_sum(tf.pow(centroids, 2), axis=1), (1, output_dim))
     M3 = tf.matmul(inputs, tf.transpose(centroids))
