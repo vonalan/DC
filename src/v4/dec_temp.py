@@ -48,8 +48,7 @@ def build_dec_graph(inputs, us, output_dim, a=1):
     # U = tf.Variable(U, name='centroids')
     centroids = tf.get_variable('centroids', dtype=data_type,
                                 initializer=tf.constant(us))
-    # a tensorflow implementation of
-    # sklearn.metrics.pairwise.pairwise_distances()
+    # an implementation of sklearn.metrics.pairwise.pairwise_distances() with tensorflow
     M1 = tf.reshape(tf.reduce_sum(tf.pow(inputs, 2), axis=1), (-1, 1))
     M2 = tf.reshape(tf.reduce_sum(tf.pow(centroids, 2), axis=1), (1, output_dim))
     M3 = tf.matmul(inputs, tf.transpose(centroids))
@@ -81,9 +80,12 @@ def build_train_graph(defalut_inputs, us, input_dim, output_dim):
     return inputs, optimizer
 
 def main():
-    kms_centroids = KMeans(n_clusters=output_dim).\
-        fit(np.loadtxt('../../data/x_1000_128.txt')).\
-        cluster_centers_.astype(np.float32)
+    if(not os.path.exists('../../data/x_1000_128_kmeans_10.txt')):
+        kms_centroids = KMeans(n_clusters=output_dim). \
+            fit(np.loadtxt('../../data/x_1000_128.txt')). \
+            cluster_centers_.astype(np.float32)
+        np.savetxt('../../data/x_1000_128_kmeans_10.txt', kms_centroids)
+    else: kms_centroids = np.loadtxt('../../data/x_1000_128_kmeans_10.txt')
 
     train_graph = tf.Graph()
     with train_graph.as_default():
