@@ -16,10 +16,11 @@ import time
 import datetime as dt
 import itertools
 
-import numpy as np 
+import numpy as np
 import tensorflow as tf 
 from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
+from sklearn.cluster import KMeans
 
 
 data_type = tf.float32
@@ -43,60 +44,53 @@ def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
     next_elements = iterator.get_next()
     return filenames, iterator, next_elements
 
-def build_depict_graph(inputs, kernel_shape, bias_shape):
-    weights = tf.get_variable("weights", kernel_shape,
-        initializer=tf.random_normal_initializer())
-    biases = tf.get_variable("biases", bias_shape,
-        initializer=tf.constant_initializer(0.0))
-    weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
-    return tf.nn.softmax(weighted_sum)
+def build_dec_graph(inputs, us, output_dim, a=1):
+    # U = tf.Variable(U, name='centroids')
+    centroids = tf.get_variable('centroids', dtype=data_type,
+                                initializer=tf.constant(us))
 
-def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
+    M1 = tf.reshape(tf.reduce_sum(tf.pow(inputs, 2), axis=1), (-1, 1))
+    M2 = tf.reshape(tf.reduce_sum(tf.pow(centroids, 2), axis=1), (1, output_dim))
+    M3 = tf.matmul(inputs, tf.transpose(centroids))
+    M4 = tf.matmul(centroids, tf.transpose(inputs))
+
+    D = M1 + M2 - (M3 + tf.transpose(M4))
+
+    N = tf.pow(D / a + 1, -((a + 1) / 2))
+    D = tf.reshape(tf.reduce_sum(N, axis=1), (-1, 1))
+    return tf.div(N, D)
+
+def build_train_graph(defalut_inputs, us, input_dim, output_dim):
     inputs = tf.placeholder_with_default(defalut_inputs, shape=[None, input_dim], name='train_input')
-    with tf.variable_scope('depict', reuse=False):
-        graph = build_depict_graph(inputs, [input_dim, output_dim], [output_dim])
+    with tf.variable_scope('dec', reuse=False):
+        graph = build_dec_graph(inputs, us, output_dim)
     with tf.variable_scope('target_distribution'):
-        P = graph
-        N = tf.reshape(tf.reduce_sum(P, axis=0), (-1, output_dim))
-        N = tf.div(P, tf.pow(N, 0.5))
-        D = tf.reshape(tf.reduce_sum(N, 1), (-1, 1))
-        Q = tf.div(N, D)
-    with tf.variable_scope('regularization'):
-        prior = [1 / float(output_dim)] * output_dim
-        U = tf.reshape(tf.constant(prior), (-1, output_dim))
-        F = tf.reshape(tf.reduce_mean(Q, axis=0), (-1, output_dim))
+        Q = graph
+        F = tf.reshape(tf.reduce_sum(Q, axis=0), (-1, output_dim))
+        N = tf.div(tf.pow(Q, 2), F)
+        D = tf.reshape(tf.reduce_sum(N, axis=1), (-1, 1))
+        P = tf.div(N, D, name='target_distribution')
     with tf.variable_scope('cost'):
-        if func == 'func_04':
-            with tf.variable_scope('func_04'):
-                C = tf.multiply(Q, tf.log(tf.div(Q, P)))
-                R = tf.multiply(Q, tf.log(tf.div(F, U)))
-                L = tf.reshape(tf.reduce_sum(C + R, axis=1), (-1, 1))
-                cost = tf.reduce_mean(L, name='cost')
-        elif func == 'func_02':
-            with tf.variable_scope('func_02'):
-                C = tf.multiply(Q, tf.log(tf.div(Q, P)))
-                L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
-                cost = tf.reduce_mean(L, name='cost')
-        elif func == 'func_08':
-            with tf.variable_scope('func_08'):
-                C = -tf.multiply(Q, tf.log(P))
-                L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
-                cost = tf.reduce_mean(L, name='cost')
-        else:
-            with tf.variable_scope('func_02'):
-                C = tf.multiply(Q, tf.log(tf.div(Q, P)))
-                L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
-                cost = tf.reduce_mean(L, name='cost')
+        with tf.variable_scope('func_02'):
+            C = tf.multiply(P, tf.log(tf.div(P, Q)))
+            L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
+            cost = tf.reduce_mean(L, name='cost')
     tf.summary.scalar('training_cost', cost)
     optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
     return inputs, optimizer
 
 def main():
+    kms_centroids = KMeans(n_clusters=output_dim).\
+        fit(np.loadtxt('../../data/x_1000_128.txt')).\
+        cluster_centers_.astype(np.float32)
+
     train_graph = tf.Graph()
     with train_graph.as_default():
         train_filenames, train_iterator, train_elements = \
             build_text_line_reader(shuffle=True, batch_size=100)
-        train_input, optimizer = build_train_graph(train_elements, input_dim, output_dim)
+        train_input, optimizer = build_train_graph(train_elements, kms_centroids, input_dim, output_dim)
+        # dec_centroids, train_input, optimizer = build_train_graph(train_elements, input_dim, output_dim)
+        # assign_centroids = tf.assign(dec_centroids, kms_centroids)
         initializer = tf.global_variables_initializer()
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
@@ -118,7 +112,7 @@ def main():
             train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
             xs = train_sess.run(train_elements)
         print(i, xs.shape)
-        # train_summary, _ = train_sess.run([optimizer, train_merger]) # if feed_dict is absent, this procedure will read twice from dataset
+        # train_summary, _ = train_sess.run([optimizer, train_merger]) #
         _, train_summary = train_sess.run([optimizer, train_merger], feed_dict={train_input: xs})
         train_writer.add_summary(train_summary, i)
         time.sleep(1)
