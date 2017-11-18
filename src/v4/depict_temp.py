@@ -88,7 +88,7 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
                 L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
                 cost = tf.reduce_mean(L, name='cost')
     tf.summary.scalar('training_cost', cost)
-    optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
+    optimizer = tf.train.AdamOptimizer(0.001).minimize(cost)
     return inputs, cost, optimizer
 
 def main():
