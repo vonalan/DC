@@ -117,9 +117,9 @@ def main():
             xs = train_sess.run(train_elements)
         # print(i, xs.shape)
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
-        _, train_summary = train_sess.run([optimizer, train_merger], feed_dict={train_input: xs})
+        _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger], feed_dict={train_input: xs})
         train_writer.add_summary(train_summary, i)
-        print('epoch: %6d, training cost: %.8f'%(i, train_cost))
+        print('epoch: %6d, training cost: %.8f'%(i, training_cost))
         # time.sleep(1)
 
 if __name__ == "__main__":
