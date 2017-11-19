@@ -6,6 +6,31 @@ import sys
 import numpy as np
 import tensorflow as tf
 
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.metrics import mean_squared_error as sklmse
+from sklearn.preprocessing import minmax_scale as sklscale
+from sklearn.metrics import normalized_mutual_info_score as sklnmi
+
+
+def build_word_vector(lineDataSet, lineCount, bins=4096):
+    Hist = np.zeros((0, bins))
+    begin = 0
+    for i in range(lineCount.shape[0]):
+        end = begin + int(lineCount[i])
+        hist = np.histogram(lineDataSet[begin:end, 0], bins, range=(0, bins))[0]
+        Hist = np.vstack((Hist, hist))
+        begin = end
+    return Hist
+
+def calc_err(y_true, y_predict):
+    return sklmse(y_true, y_predict, multioutput='raw_values')
+
+def calc_acc(y_true, y_predict):
+    tidx = np.argmax(y_true, axis=1)
+    pidx = np.argmax(y_predict, axis=1)
+    eidx = (tidx == pidx)
+    acc = eidx.sum() / eidx.shape[0]
+    return acc
 
 def writeLog(root, name, string):
     if not os.path.exists(root): os.mkdir(root)

@@ -120,7 +120,7 @@ def discritize(dataset, numClass=None, num_each_class=None, mode='kMeans'):
     return res
 
 
-class RBFNN(object):
+class Network(object):
     '''to provide the same api as sklearn'''
     # initialize the archietecture for Neural Network
     def __init__(self, indim=None, numCenter=None, outdim=None, alpha=1.0):

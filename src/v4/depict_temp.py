@@ -8,6 +8,10 @@
 #     moving average 
 #     batch norminalization
 #     RNN
+#     distributions
+#     vector representations of words
+#         continuous bag-of-words model (CBOW)
+#         Skip-Gram Model
 
 import os 
 import sys 
@@ -31,6 +35,7 @@ class flags(object):
     summaries_dir = './temp/logs/'
 FLAGS = flags()
 data_to_eval = True
+data_to_infer = True
 
 def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
     filenames = tf.placeholder(tf.string, shape=[None])
@@ -91,51 +96,134 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
     optimizer = tf.train.AdamOptimizer(0.001).minimize(cost)
     return inputs, cost, optimizer
 
+def build_eval_graph(default_inputs, input_dim, output_dim):
+    inputs = tf.placeholder_with_default(default_inputs, shape=[None, input_dim], name='eval_input')
+    with tf.variable_scope('depict', reuse=False):
+        graph = build_depict_graph(inputs, [input_dim, output_dim], [output_dim])
+    with tf.variable_scope('eval_output'):
+        P = graph
+        outputs = tf.argmax(P, axis=1, name='output')
+    return inputs, outputs
+
+def build_infer_graph(default_inputs, input_dim, output_dim):
+    inputs = tf.placeholder_with_default(default_inputs, shape=[None, input_dim], name='infer_inputs')
+    with tf.variable_scope('depict', reuse=False):
+        graph = build_depict_graph(inputs, [input_dim, output_dim], [output_dim])
+    with tf.variable_scope('infer_output'):
+        P = graph
+        outputs = tf.argmax(P, axis=1, name='output')
+    return inputs, outputs
+
 def main():
     train_graph = tf.Graph()
     with train_graph.as_default():
         train_filenames, train_iterator, train_elements = \
             build_text_line_reader(shuffle=True, batch_size=100)
-        train_input, train_cost, optimizer = build_train_graph(train_elements, input_dim, output_dim)
-        initializer = tf.global_variables_initializer()
+        train_inputs, train_cost, optimizer = build_train_graph(train_elements, input_dim, output_dim)
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
-        # train_sess = tf.Session(config=tf.ConfigProto(device_count={'gpu':0}))
-        train_sess = tf.Session()
+        train_initializer = tf.global_variables_initializer()
+    eval_graph = tf.Graph()
+    with eval_graph.as_default():
+        eval_filenames, eval_iterator, eval_elements = \
+            build_text_line_reader(shuffle=True, batch_size=100)
+        eval_inputs, eval_outputs = build_eval_graph(eval_elements, input_dim, output_dim)
+        eval_saver = tf.train.Saver()
+        eval_merger = tf.summary.merge_all()
+        eval_initializer = tf.global_variables_initializer()
+    infer_graph = tf.Graph()
+    with infer_graph.as_default():
+        infer_filenames, infer_iterator, infer_elements = \
+            build_text_line_reader(shuffle=False, batch_size=10000)
+        infer_inputs, infer_outputs = build_infer_graph(infer_elements, input_dim, output_dim)
+        infer_saver = tf.train.Saver()
+        infer_merger = tf.summary.merge_all()
+        infer_initializer = tf.global_variables_initializer()
 
-    checkpoints_path = "/tmp/model/checkpoints"
-    # merged = tf.summary.merge_all()
+    checkpoints_path = "temp/model/checkpoints"
+
+    train_sess = tf.Session(graph=train_graph)
+    eval_sess = tf.Session(graph=eval_graph)
+    infer_sess = tf.Session(graph=infer_graph)
+
     train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train', train_graph)
-    validation_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/validation')
+    validation_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/validation', eval_graph)
+    infer_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/inference', infer_graph)
 
-    train_sess.run(initializer)
+    train_sess.run(train_initializer)
     train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
     # train_sess.run(train_iterator.initializer)
     for i in itertools.count():
         try:
-            xs = train_sess.run(train_elements)
+            xs_train = train_sess.run(train_elements)
         except tf.errors.OutOfRangeError:
             train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
-            xs = train_sess.run(train_elements)
-        # print(i, xs.shape)
+            xs_train = train_sess.run(train_elements)
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
-        _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger], feed_dict={train_input: xs})
+        _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger],
+                                                         feed_dict={train_inputs: xs_train})
         train_writer.add_summary(train_summary, i)
-        print('epoch: %6d, training cost: %.8f'%(i, training_cost))
+        # print('epoch: %6d, training cost: %.8f'%(i, training_cost))
         # time.sleep(1)
+
+        if i % EVAL_STEPS == 0:
+            checkpoint_path = train_saver.save(train_sess, checkpoints_path, global_step=i)
+            eval_saver.restore(eval_sess, checkpoint_path)
+            eval_sess.run(eval_iterator.initializer, feed_dict={eval_filenames: [r'../../data/x_1000_128.txt']})
+            while data_to_eval:
+                try:
+                    xs_eval = eval_sess.run(eval_elements)
+                except tf.errors.OutOfRangeError:
+                    # eval_sess.run(eval_iterator.initializer,
+                    #                feed_dict={eval_filenames: [r'../../data/x_1000_128.txt']})
+                    # xs_eval = eval_sess.run(eval_elements)
+                    break
+                training_outputs = eval_sess.run(eval_outputs, feed_dict={eval_inputs: xs_train})
+                evaluation_outputs = eval_sess.run(eval_outputs, feed_dict={eval_inputs: xs_eval})
+                evaluation_cost, eval_summary = train_sess.run([train_cost, train_merger], feed_dict={train_inputs: xs_eval})
+                print("epoch: %d, training outputs: %s, training cost: %f"%(i, training_outputs.shape, training_cost))
+                print("epoch: %d, evaluation outputs: %s, evaluation cost: %f" % (i, evaluation_outputs.shape, evaluation_cost))
+                validation_writer.add_summary(eval_summary, i)
+                break
+
+        if i % INFER_STEPS == 0:
+            checkpoint_path = train_saver.save(train_sess, checkpoints_path, global_step=i)
+            infer_saver.restore(infer_sess, checkpoint_path)
+
+            infers_train = []
+            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [r'../../data/x_1000_128.txt']})
+            while data_to_infer:
+                try:
+                    xs_infer = infer_sess.run(infer_elements)
+                except tf.errors.OutOfRangeError:
+                    break
+                ys_infer = infer_sess.run(infer_outputs, feed_dict={infer_inputs: xs_infer})
+                infers_train.extend(ys_infer)
+            print(infers_train)
+
+            infers_test = []
+            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [r'../../data/x_1000_128.txt']})
+            while data_to_infer:
+                try:
+                    xs_infer = infer_sess.run(infer_elements)
+                except tf.errors.OutOfRangeError:
+                    break
+                ys_infer = infer_sess.run(infer_outputs, feed_dict={infer_inputs: xs_infer})
+                infers_test.extend(ys_infer)
+            print(infers_test)
 
 if __name__ == "__main__":
     # train_filenames, train_iterator, train_elements = \
-    #     build_text_line_reader(shuffle=True, batch_size=100)
+    #     build_text_line_reader(shuffle=True, batch_size=20000)
     # train_sess = tf.Session()
     # train_sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'../../data/x_1000_128.txt']})
     # # train_sess.run(train_iterator.initializer)
     # for i in range(30):
     #     try:
-    #         print(i, train_sess.run(train_elements)[0,:4])
+    #         print(i, train_sess.run(train_elements).shape)
     #     except tf.errors.OutOfRangeError:
     #         train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
-    #         print(i, train_sess.run(train_elements)[0, :4])
+    #         print(i, train_sess.run(train_elements).shape)
     #         # raise Exception()
     #     time.sleep(1)
     main()
