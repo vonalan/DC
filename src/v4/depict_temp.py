@@ -107,11 +107,11 @@ def build_infer_graph(default_inputs, input_dim, output_dim):
         outputs = tf.argmax(P, axis=1, name='output')
     return inputs, outputs
 
-def build_metrics_graph():
-    with tf.variable_scope('rbfnn'):
-        err_train = tf.placeholder(tf.float32, [1, FLAGS.rbfnn_output_dim])
+def build_metrics_graph(scope_name):
+    with tf.variable_scope(scope_name):
+        err_train = tf.placeholder(tf.float32, [FLAGS.rbfnn_output_dim])
         acc_train = tf.placeholder(tf.float32, ())
-        err_test = tf.placeholder(tf.float32, [1, FLAGS.rbfnn_output_dim])
+        err_test = tf.placeholder(tf.float32, [FLAGS.rbfnn_output_dim])
         acc_test = tf.placeholder(tf.float32, ())
 
         err_train_collipse = tf.reduce_mean(err_train)
@@ -125,6 +125,15 @@ def build_metrics_graph():
                 acc_train=acc_train,
                 err_test=err_test,
                 acc_test=acc_test)
+
+def metrics_to_metrics(sess, merger, metrics_1, metrics_2):
+    summary = sess.run(merger, feed_dict={
+        metrics_1['err_train']: metrics_2['err_train'],
+        metrics_1['acc_train']: metrics_2['acc_train'],
+        metrics_1['err_test']: metrics_2['err_test'],
+        metrics_1['acc_test']: metrics_2['acc_test'],
+    })
+    return summary
 
 
 def prepare_file_system():
@@ -171,7 +180,8 @@ def main():
             build_text_line_reader(shuffle=False, batch_size=FLAGS.infer_batch_size)
         infer_inputs, infer_outputs = build_infer_graph(
             infer_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim)
-        rbfnn_metrics = build_metrics_graph()
+        rbfnn_metrics = build_metrics_graph('rbfnn')
+        # kmeans_metrics = build_metrics_graph('kmeans')
         infer_saver = tf.train.Saver()
         infer_merger = tf.summary.merge_all()
         infer_initializer = tf.global_variables_initializer()
@@ -248,12 +258,7 @@ def main():
             metrics = classifier.run(infers_train, infers_test, FLAGS)
             # print(metrics)
             pprint.pprint(metrics)
-            infer_summary = infer_sess.run(infer_merger, feed_dict={
-                rbfnn_metrics['err_train']: metrics['err_train'],
-                rbfnn_metrics['acc_train']: metrics['acc_train'],
-                rbfnn_metrics['err_test']: metrics['err_test'],
-                rbfnn_metrics['acc_test']: metrics['acc_test'],
-            })
+            infer_summary = metrics_to_metrics(infer_sess, infer_merger, rbfnn_metrics, metrics)
             infer_writer.add_summary(infer_summary, i)
 
 if __name__ == "__main__":
