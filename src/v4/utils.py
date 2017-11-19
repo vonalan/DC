@@ -7,7 +7,6 @@ import numpy as np
 import tensorflow as tf
 
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import mean_squared_error as sklmse
 from sklearn.preprocessing import minmax_scale as sklscale
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
@@ -21,16 +20,6 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
         Hist = np.vstack((Hist, hist))
         begin = end
     return Hist
-
-def calc_err(y_true, y_predict):
-    return sklmse(y_true, y_predict, multioutput='raw_values')
-
-def calc_acc(y_true, y_predict):
-    tidx = np.argmax(y_true, axis=1)
-    pidx = np.argmax(y_predict, axis=1)
-    eidx = (tidx == pidx)
-    acc = eidx.sum() / eidx.shape[0]
-    return acc
 
 def writeLog(root, name, string):
     if not os.path.exists(root): os.mkdir(root)
@@ -71,6 +60,7 @@ def kmeans(root, name, X=None, outdim=4096, factor=4):
     else:
         kms = joblib.load(mfile)
     return kms
+
 
 
 if __name__ == "__main__":
