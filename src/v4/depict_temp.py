@@ -25,17 +25,19 @@ import tensorflow as tf
 from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
+import classifier
 
-data_type = tf.float32
-input_dim = 128
-output_dim = 10
-EVAL_STEPS=10
-INFER_STEPS=100
-class flags(object):
-    summaries_dir = './temp/logs/'
-FLAGS = flags()
-data_to_eval = True
-data_to_infer = True
+# import parser
+
+# data_type = tf.float32
+# input_dim = 128
+# output_dim = 10
+# EVAL_STEPS=10
+# INFER_STEPS=100
+# data_to_eval = True
+# data_to_infer = True
+
+FLAGS = None
 
 def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
     filenames = tf.placeholder(tf.string, shape=[None])
@@ -114,33 +116,53 @@ def build_infer_graph(default_inputs, input_dim, output_dim):
         outputs = tf.argmax(P, axis=1, name='output')
     return inputs, outputs
 
+def prepare_file_system():
+  # Setup the directory we'll write summaries to for TensorBoard
+  if tf.gfile.Exists(FLAGS.summaries_dir):
+    tf.gfile.DeleteRecursively(FLAGS.summaries_dir)
+  # tf.gfile.MakeDirs(FLAGS.summaries_dir)
+  if tf.gfile.Exists(FLAGS.checkpoints_dir):
+    tf.gfile.DeleteRecursively(FLAGS.checkpoints_dir)
+  # tf.gfile.MakeDirs(FLAGS.summaries_dir)
+  return
+
 def main():
+    tf.logging.set_verbosity(tf.logging.INFO)
+    prepare_file_system()
+
+    # FLAGS.eval_step_interval = 1
+    # FLAGS.infer_step_interal = 1
+    # FLAGS.train_batch_size = 10000
+    # FLAGS.infer_batch_size = 10000
+    # FLAGS.eval_batch_size = 10000
+
     train_graph = tf.Graph()
     with train_graph.as_default():
         train_filenames, train_iterator, train_elements = \
-            build_text_line_reader(shuffle=True, batch_size=100)
-        train_inputs, train_cost, optimizer = build_train_graph(train_elements, input_dim, output_dim)
+            build_text_line_reader(shuffle=True, batch_size=FLAGS.train_batch_size)
+        train_inputs, train_cost, optimizer = build_train_graph(
+            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim)
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
         train_initializer = tf.global_variables_initializer()
     eval_graph = tf.Graph()
     with eval_graph.as_default():
         eval_filenames, eval_iterator, eval_elements = \
-            build_text_line_reader(shuffle=True, batch_size=100)
-        eval_inputs, eval_outputs = build_eval_graph(eval_elements, input_dim, output_dim)
+            build_text_line_reader(shuffle=True, batch_size=FLAGS.eval_batch_size)
+        eval_inputs, eval_outputs = build_eval_graph(
+            eval_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim)
         eval_saver = tf.train.Saver()
         eval_merger = tf.summary.merge_all()
         eval_initializer = tf.global_variables_initializer()
     infer_graph = tf.Graph()
     with infer_graph.as_default():
         infer_filenames, infer_iterator, infer_elements = \
-            build_text_line_reader(shuffle=False, batch_size=10000)
-        infer_inputs, infer_outputs = build_infer_graph(infer_elements, input_dim, output_dim)
+            build_text_line_reader(shuffle=False, batch_size=FLAGS.infer_batch_size)
+        infer_inputs, infer_outputs = build_infer_graph(
+            infer_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim)
         infer_saver = tf.train.Saver()
         infer_merger = tf.summary.merge_all()
         infer_initializer = tf.global_variables_initializer()
-
-    checkpoints_path = "temp/model/checkpoints"
 
     train_sess = tf.Session(graph=train_graph)
     eval_sess = tf.Session(graph=eval_graph)
@@ -151,13 +173,13 @@ def main():
     infer_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/inference', infer_graph)
 
     train_sess.run(train_initializer)
-    train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
+    train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [FLAGS.path_to_xtrain]})
     # train_sess.run(train_iterator.initializer)
     for i in itertools.count():
         try:
             xs_train = train_sess.run(train_elements)
         except tf.errors.OutOfRangeError:
-            train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
+            train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [FLAGS.path_to_xtrain]})
             xs_train = train_sess.run(train_elements)
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
         _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger],
@@ -166,11 +188,11 @@ def main():
         # print('epoch: %6d, training cost: %.8f'%(i, training_cost))
         # time.sleep(1)
 
-        if i % EVAL_STEPS == 0:
-            checkpoint_path = train_saver.save(train_sess, checkpoints_path, global_step=i)
+        if i % FLAGS.eval_step_interval == 0:
+            checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir, global_step=i)
             eval_saver.restore(eval_sess, checkpoint_path)
-            eval_sess.run(eval_iterator.initializer, feed_dict={eval_filenames: [r'../../data/x_1000_128.txt']})
-            while data_to_eval:
+            eval_sess.run(eval_iterator.initializer, feed_dict={eval_filenames: [FLAGS.path_to_xtest]})
+            while FLAGS.data_to_eval:
                 try:
                     xs_eval = eval_sess.run(eval_elements)
                 except tf.errors.OutOfRangeError:
@@ -178,21 +200,21 @@ def main():
                     #                feed_dict={eval_filenames: [r'../../data/x_1000_128.txt']})
                     # xs_eval = eval_sess.run(eval_elements)
                     break
-                training_outputs = eval_sess.run(eval_outputs, feed_dict={eval_inputs: xs_train})
-                evaluation_outputs = eval_sess.run(eval_outputs, feed_dict={eval_inputs: xs_eval})
+                # training_outputs = eval_sess.run(eval_outputs, feed_dict={eval_inputs: xs_train})
+                # evaluation_outputs = eval_sess.run(eval_outputs, feed_dict={eval_inputs: xs_eval})
                 evaluation_cost, eval_summary = train_sess.run([train_cost, train_merger], feed_dict={train_inputs: xs_eval})
-                print("epoch: %d, training outputs: %s, training cost: %f"%(i, training_outputs.shape, training_cost))
-                print("epoch: %d, evaluation outputs: %s, evaluation cost: %f" % (i, evaluation_outputs.shape, evaluation_cost))
+                tf.logging.info("epoch: %d, training cost: %f"%(i, training_cost))
+                tf.logging.info("epoch: %d, evaluation cost: %f" % (i, evaluation_cost))
                 validation_writer.add_summary(eval_summary, i)
                 break
 
-        if i % INFER_STEPS == 0:
-            checkpoint_path = train_saver.save(train_sess, checkpoints_path, global_step=i)
+        if i % FLAGS.infer_step_interval == 0:
+            checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir, global_step=i)
             infer_saver.restore(infer_sess, checkpoint_path)
 
             infers_train = []
-            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [r'../../data/x_1000_128.txt']})
-            while data_to_infer:
+            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtest]})
+            while FLAGS.data_to_infer:
                 try:
                     xs_infer = infer_sess.run(infer_elements)
                 except tf.errors.OutOfRangeError:
@@ -202,8 +224,8 @@ def main():
             print(infers_train)
 
             infers_test = []
-            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [r'../../data/x_1000_128.txt']})
-            while data_to_infer:
+            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtrain]})
+            while FLAGS.data_to_infer:
                 try:
                     xs_infer = infer_sess.run(infer_elements)
                 except tf.errors.OutOfRangeError:
@@ -211,6 +233,8 @@ def main():
                 ys_infer = infer_sess.run(infer_outputs, feed_dict={infer_inputs: xs_infer})
                 infers_test.extend(ys_infer)
             print(infers_test)
+            metrics = classifier.run(infers_train, infers_test, FLAGS)
+            print(metrics)
 
 if __name__ == "__main__":
     # train_filenames, train_iterator, train_elements = \
@@ -226,4 +250,122 @@ if __name__ == "__main__":
     #         print(i, train_sess.run(train_elements).shape)
     #         # raise Exception()
     #     time.sleep(1)
+
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--depict_input_dim',
+        type=int,
+        default=162
+    )
+    parser.add_argument(
+        '--depict_output_dim',
+        type=int,
+        default=128
+    )
+    parser.add_argument(
+        '--path_to_ctrain',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctrain_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_xtrain',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtrain_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_ytrain',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ytrain_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_ctest',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctest_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_xtest',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtest_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_ytest',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ytest_r9.txt'
+    )
+    parser.add_argument(
+        '--summaries_dir',
+        type=str,
+        default='../../temp/logs',
+        help='Where to save summary logs for TensorBoard.'
+    )
+    parser.add_argument(
+        '--checkpoints_dir',
+        type=str,
+        default='../../temp/model/checkpoints',
+        help='Where to save summary logs for TensorBoard.'
+    )
+    parser.add_argument(
+        '--how_many_training_steps',
+        type=int,
+        default=40000,
+        help='How many training steps to run before ending.'
+    )
+    parser.add_argument(
+        '--learning_rate',
+        type=float,
+        default=0.01,
+        help='How large a learning rate to use when training.'
+    )
+    parser.add_argument(
+        '--eval_step_interval',
+        type=int,
+        default=1,
+        help='How often to evaluate the training results.'
+    )
+    parser.add_argument(
+        '--infer_step_interval',
+        type=int,
+        default=1,
+        help='How often to evaluate the training results.'
+    )
+    parser.add_argument(
+        '--train_batch_size',
+        type=int,
+        default=10000,
+        help='How many images to train on at a time.'
+    )
+    parser.add_argument(
+        '--infer_batch_size',
+        type=int,
+        default=10000,  # 1 for attention, -1 for others
+        help='How many images to test on at a time.'
+    )
+    parser.add_argument(
+        '--eval_batch_size',
+        type=int,
+        default=100000,
+        help='How many images to use in an evaluation batch.'
+    )
+    parser.add_argument(
+        '--data_to_eval',
+        type=bool,
+        default=True
+    )
+    parser.add_argument(
+        '--data_to_infer',
+        type=bool,
+        default=True
+    )
+    parser.add_argument(
+        '--rbfnn_num_center',
+        type=int,
+        default=90
+    )
+    parser.add_argument(
+        '--rbfnn_output_dim',
+        type=int,
+        default=6
+    )
+    FLAGS, unparsed = parser.parse_known_args()
     main()

@@ -16,7 +16,7 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
     begin = 0
     for i in range(lineCount.shape[0]):
         end = begin + int(lineCount[i])
-        hist = np.histogram(lineDataSet[begin:end, 0], bins, range=(0, bins))[0]
+        hist = np.histogram(lineDataSet[begin:end], bins, range=(0, bins))[0]
         Hist = np.vstack((Hist, hist))
         begin = end
     return Hist

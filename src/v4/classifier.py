@@ -15,6 +15,7 @@ import math
 import time
 import datetime as dt
 import itertools
+import pprint
 
 import numpy as np 
 import tensorflow as tf 
@@ -59,9 +60,9 @@ def run_svm(xs_train, ts_train, xs_test, ts_test):
                 acc_test=acc_test,
                 stsm_train=stsm_train)
 
-def run_rbfnn(xs_train, ts_train, xs_test, ts_test):
-    network = rbfnn.Network()
-    network.train(xs_train)
+def run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS):
+    network = rbfnn.Network(FLAGS.depict_output_dim, FLAGS.rbfnn_num_center, FLAGS.rbfnn_output_dim)
+    network.fit(xs_train, ts_train)
 
     ys_train = network.predict(xs_train)
     ys_test = network.predict(xs_test)
@@ -80,17 +81,82 @@ def run_rbfnn(xs_train, ts_train, xs_test, ts_test):
                 acc_test=acc_test,
                 stsm_train=stsm_train)
 
-def run(outputs_train, outputs_eval, bins, xs_train=None, ts_train=None, xs_test=None, ys_test=None):
-    # step_02 build word vectors
-    c_train = np.loadtxt(cline_path)
-    c_test = np.loadtxt()
-    hist_train = utils.build_word_vector(outputs_train, c_train, bins)
-    hist_test = utils.build_word_vector(outputs_eval, c_test, bins)
+def run(outputs_train, outputs_eval, FLAGS):
+    c_train = np.loadtxt(FLAGS.path_to_ctrain)
+    c_test = np.loadtxt(FLAGS.path_to_ctest)
+
+    hist_train = utils.build_word_vector(outputs_train, c_train, FLAGS.depict_output_dim)
+    hist_test = utils.build_word_vector(outputs_eval, c_test, FLAGS.depict_output_dim)
     xs_train = sklscale(hist_train)
     xs_test = sklscale(hist_test)
 
     # step_03 load
-    ts_train = None
-    ts_test = None
+    ts_train = np.loadtxt(FLAGS.path_to_ytrain)
+    ts_test = np.loadtxt(FLAGS.path_to_ytest)
 
-    return run_rbfnn(xs_train, ts_train, xs_test, ts_test)
+    return run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS)
+
+def pseudo():
+    c_train = np.loadtxt(FLAGS.path_to_ctrain).astype(np.int)
+    c_test = np.loadtxt(FLAGS.path_to_ctest).astype(np.int)
+
+    outputs_train = np.random.randint(0, FLAGS.depict_output_dim-1, (c_train.sum()))
+    outputs_test = np.random.randint(0, FLAGS.depict_output_dim-1, (c_test.sum()))
+    hist_train = utils.build_word_vector(outputs_train, c_train, FLAGS.depict_output_dim)
+    hist_test = utils.build_word_vector(outputs_test, c_test, FLAGS.depict_output_dim)
+    xs_train = sklscale(hist_train)
+    xs_test = sklscale(hist_test)
+
+    ts_train = np.loadtxt(FLAGS.path_to_ytrain)
+    ts_test = np.loadtxt(FLAGS.path_to_ytest)
+
+    metrics = run_rbfnn(xs_train, ts_train, xs_test, ts_test)
+    # print(metrics)
+    pprint.pprint(metrics)
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--depict_input_dim',
+        type=int,
+        default=162
+    )
+    parser.add_argument(
+        '--depict_output_dim',
+        type=int,
+        default=128
+    )
+    parser.add_argument(
+        '--path_to_ctrain',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctrain_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_xtrain',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtrain_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_ytrain',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ytrain_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_ctest',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctest_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_xtest',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtest_r9.txt'
+    )
+    parser.add_argument(
+        '--path_to_ytest',
+        type=str,
+        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ytest_r9.txt'
+    )
+    FLAGS, unparsed = parser.parse_known_args()
+    pseudo()
