@@ -120,10 +120,10 @@ def prepare_file_system():
   # Setup the directory we'll write summaries to for TensorBoard
   if tf.gfile.Exists(FLAGS.summaries_dir):
     tf.gfile.DeleteRecursively(FLAGS.summaries_dir)
-  # tf.gfile.MakeDirs(FLAGS.summaries_dir)
+  tf.gfile.MakeDirs(FLAGS.summaries_dir)
   if tf.gfile.Exists(FLAGS.checkpoints_dir):
     tf.gfile.DeleteRecursively(FLAGS.checkpoints_dir)
-  # tf.gfile.MakeDirs(FLAGS.summaries_dir)
+  tf.gfile.MakeDirs(FLAGS.summaries_dir)
   return
 
 def main():
