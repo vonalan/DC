@@ -19,6 +19,7 @@ import math
 import time
 import datetime as dt
 import itertools
+import pprint
 
 import numpy as np 
 import tensorflow as tf 
@@ -26,16 +27,6 @@ from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
 import classifier
-
-# import parser
-
-# data_type = tf.float32
-# input_dim = 128
-# output_dim = 10
-# EVAL_STEPS=10
-# INFER_STEPS=100
-# data_to_eval = True
-# data_to_infer = True
 
 FLAGS = None
 
@@ -116,6 +107,26 @@ def build_infer_graph(default_inputs, input_dim, output_dim):
         outputs = tf.argmax(P, axis=1, name='output')
     return inputs, outputs
 
+def build_metrics_graph():
+    with tf.variable_scope('rbfnn'):
+        err_train = tf.placeholder(tf.float32, [1, FLAGS.rbfnn_output_dim])
+        acc_train = tf.placeholder(tf.float32, ())
+        err_test = tf.placeholder(tf.float32, [1, FLAGS.rbfnn_output_dim])
+        acc_test = tf.placeholder(tf.float32, ())
+
+        err_train_collipse = tf.reduce_mean(err_train)
+        err_test_collipse = tf.reduce_mean(err_test)
+
+        tf.summary.scalar('err_train', err_train_collipse)
+        tf.summary.scalar('acc_train', acc_train)
+        tf.summary.scalar('err_test', err_test_collipse)
+        tf.summary.scalar('acc_test', acc_test)
+    return dict(err_train=err_train,
+                acc_train=acc_train,
+                err_test=err_test,
+                acc_test=acc_test)
+
+
 def prepare_file_system():
   # Setup the directory we'll write summaries to for TensorBoard
   if tf.gfile.Exists(FLAGS.summaries_dir):
@@ -160,6 +171,7 @@ def main():
             build_text_line_reader(shuffle=False, batch_size=FLAGS.infer_batch_size)
         infer_inputs, infer_outputs = build_infer_graph(
             infer_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim)
+        rbfnn_metrics = build_metrics_graph()
         infer_saver = tf.train.Saver()
         infer_merger = tf.summary.merge_all()
         infer_initializer = tf.global_variables_initializer()
@@ -189,7 +201,7 @@ def main():
         # time.sleep(1)
 
         if i % FLAGS.eval_step_interval == 0:
-            checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir, global_step=i)
+            checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
             eval_saver.restore(eval_sess, checkpoint_path)
             eval_sess.run(eval_iterator.initializer, feed_dict={eval_filenames: [FLAGS.path_to_xtest]})
             while FLAGS.data_to_eval:
@@ -209,7 +221,7 @@ def main():
                 break
 
         if i % FLAGS.infer_step_interval == 0:
-            checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir, global_step=i)
+            checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
             infer_saver.restore(infer_sess, checkpoint_path)
 
             infers_train = []
@@ -221,7 +233,7 @@ def main():
                     break
                 ys_infer = infer_sess.run(infer_outputs, feed_dict={infer_inputs: xs_infer})
                 infers_train.extend(ys_infer)
-            print(infers_train)
+            # print(infers_train)
 
             infers_test = []
             infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtrain]})
@@ -232,9 +244,17 @@ def main():
                     break
                 ys_infer = infer_sess.run(infer_outputs, feed_dict={infer_inputs: xs_infer})
                 infers_test.extend(ys_infer)
-            print(infers_test)
+            # print(infers_test)
             metrics = classifier.run(infers_train, infers_test, FLAGS)
-            print(metrics)
+            # print(metrics)
+            pprint.pprint(metrics)
+            infer_summary = infer_sess.run(infer_merger, feed_dict={
+                rbfnn_metrics['err_train']: metrics['err_train'],
+                rbfnn_metrics['acc_train']: metrics['acc_train'],
+                rbfnn_metrics['err_test']: metrics['err_test'],
+                rbfnn_metrics['acc_test']: metrics['acc_test'],
+            })
+            infer_writer.add_summary(infer_summary, i)
 
 if __name__ == "__main__":
     # train_filenames, train_iterator, train_elements = \
@@ -302,7 +322,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--checkpoints_dir',
         type=str,
-        default='../../temp/model/checkpoints',
+        default='../../temp/models',
         help='Where to save summary logs for TensorBoard.'
     )
     parser.add_argument(
@@ -368,4 +388,5 @@ if __name__ == "__main__":
         default=6
     )
     FLAGS, unparsed = parser.parse_known_args()
+    pprint.pprint(FLAGS)
     main()
