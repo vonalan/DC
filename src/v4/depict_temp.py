@@ -286,7 +286,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--depict_output_dim',
         type=int,
-        default=128
+        default=1024
     )
     parser.add_argument(
         '--path_to_ctrain',
@@ -345,13 +345,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '--eval_step_interval',
         type=int,
-        default=1,
+        default=10,
         help='How often to evaluate the training results.'
     )
     parser.add_argument(
         '--infer_step_interval',
         type=int,
-        default=1,
+        default=100,
         help='How often to evaluate the training results.'
     )
     parser.add_argument(
@@ -363,13 +363,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '--infer_batch_size',
         type=int,
-        default=10000,  # 1 for attention, -1 for others
+        default=100000,  # 1 for attention, -1 for others
         help='How many images to test on at a time.'
     )
     parser.add_argument(
         '--eval_batch_size',
         type=int,
-        default=100000,
+        default=10000,
         help='How many images to use in an evaluation batch.'
     )
     parser.add_argument(
