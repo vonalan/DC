@@ -392,6 +392,11 @@ if __name__ == "__main__":
         type=int,
         default=6
     )
+    parser.add_argument(
+        '--number_classes',
+        type=int,
+        default=6
+    )
     FLAGS, unparsed = parser.parse_known_args()
     pprint.pprint(FLAGS)
     main()

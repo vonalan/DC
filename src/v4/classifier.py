@@ -24,6 +24,7 @@ from sklearn.preprocessing import minmax_scale as sklscale
 from sklearn.metrics import mean_squared_error as sklmse
 from sklearn.metrics import accuracy_score as sklacc
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.svm import SVC
 
 import utils
@@ -39,12 +40,18 @@ def calc_acc(y_true, y_predict):
     acc = eidx.sum() / eidx.shape[0]
     return acc
 
-def run_svm(xs_train, ts_train, xs_test, ts_test):
+def run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS):
+    ts_train = np.argmax(ts_train, axis=1)
+
     svc = SVC()
     svc.fit(xs_train, ts_train)
 
     ys_train = svc.predict(xs_train)
     ys_test = svc.predict(xs_test)
+
+    encoder = OneHotEncoder(n_values=FLAGS.rbfnn_output_dim)
+    ys_train = encoder.fit_transform(ys_train)
+    ys_test = encoder.fit_transform(ys_test)
 
     err_train = calc_err(ts_train, ys_train)
     acc_train = calc_acc(ts_train, ys_train)
@@ -94,7 +101,8 @@ def run(outputs_train, outputs_eval, FLAGS):
     ts_train = np.loadtxt(FLAGS.path_to_ytrain)
     ts_test = np.loadtxt(FLAGS.path_to_ytest)
 
-    return run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS)
+    # return run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS)
+    return run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS)
 
 def pseudo():
     c_train = np.loadtxt(FLAGS.path_to_ctrain).astype(np.int)
