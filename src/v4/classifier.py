@@ -42,6 +42,7 @@ def calc_acc(y_true, y_predict):
 
 def run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS):
     ts_train = np.argmax(ts_train, axis=1)
+    ts_test = np.argmax(ts_test, axis=1)
 
     svc = SVC()
     svc.fit(xs_train, ts_train)
@@ -50,8 +51,12 @@ def run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS):
     ys_test = svc.predict(xs_test)
 
     encoder = OneHotEncoder(n_values=FLAGS.rbfnn_output_dim)
+    encoder.fit([i for i in range(FLAGS.rbfnn_output_dim)])
+
     ys_train = encoder.fit_transform(ys_train)
     ys_test = encoder.fit_transform(ys_test)
+    ts_train = encoder.fit_transform(ts_train)
+    ts_test = encoder.fit_transform(ts_test)
 
     err_train = calc_err(ts_train, ys_train)
     acc_train = calc_acc(ts_train, ys_train)
