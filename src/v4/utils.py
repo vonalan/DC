@@ -2,6 +2,7 @@
 
 import os
 import sys
+import math
 
 import numpy as np
 import tensorflow as tf
@@ -20,6 +21,28 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
         Hist = np.vstack((Hist, hist))
         begin = end
     return Hist
+
+def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
+    dataset = None
+    for filename in filenames:
+        mini_batch = np.loadtxt(filename)
+        if dataset == None:
+            dataset = mini_batch
+        else:
+            dataset.vstack((dataset, mini_batch))
+    num_samples, num_features = dataset.shape
+    num_batches = int(math.ceil(num_samples/batch_size))
+    indices = np.arange(num_samples)
+    if shuffle:
+        np.random.shuffle(indices)
+    for batch in range(num_batches):
+        start = batch * batch_size
+        end = (batch + 1) * batch_size
+        if end > num_samples:
+            end = num_samples
+        mini_batch = dataset[start:end,:]
+        yield mini_batch
+
 
 def writeLog(root, name, string):
     if not os.path.exists(root): os.mkdir(root)
