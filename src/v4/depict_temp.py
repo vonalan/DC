@@ -86,7 +86,7 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
                 L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
                 cost = tf.reduce_mean(L, name='cost')
     tf.summary.scalar('training_cost', cost)
-    optimizer = tf.train.AdamOptimizer(0.001).minimize(cost)
+    optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cost)
     return inputs, cost, optimizer
 
 def build_eval_graph(default_inputs, input_dim, output_dim):
@@ -385,7 +385,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--rbfnn_num_center',
         type=int,
-        default=90
+        default=128
     )
     parser.add_argument(
         '--rbfnn_output_dim',
