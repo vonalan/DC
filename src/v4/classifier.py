@@ -75,6 +75,8 @@ def run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS):
                 stsm_train=stsm_train)
 
 def run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS):
+    assert FLAGS.rbfnn_num_center % FLAGS.rbfnn_output_dim == 0
+
     network = rbfnn.Network(FLAGS.depict_output_dim, FLAGS.rbfnn_num_center, FLAGS.rbfnn_output_dim)
     network.fit(xs_train, ts_train)
 
