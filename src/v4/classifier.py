@@ -29,6 +29,7 @@ from sklearn.svm import SVC
 
 import utils
 import rbfnn
+import stsm_pesudo as stsm
 
 def calc_err(y_true, y_predict):
     return sklmse(y_true, y_predict, multioutput='raw_values')
@@ -85,7 +86,7 @@ def run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS):
     err_test = calc_err(ts_test, ys_test)
     acc_test = calc_acc(ts_test, ys_test)
 
-    stsm_train = 0.25
+    stsm_train = stsm.calc_stsm_vector(network, xs_train, cost_func=calc_err)
 
     return dict(err_train=err_train,
                 acc_train=acc_train,
