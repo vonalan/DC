@@ -51,6 +51,7 @@ def run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS):
     ys_train = svc.predict(xs_train)
     ys_test = svc.predict(xs_test)
 
+    # TODO: one hot label
     encoder = OneHotEncoder(n_values=FLAGS.rbfnn_output_dim)
     encoder.fit([i for i in range(FLAGS.rbfnn_output_dim)])
 
@@ -107,6 +108,7 @@ def run(outputs_train, outputs_eval, FLAGS):
     ts_train = np.loadtxt(FLAGS.path_to_ytrain)
     ts_test = np.loadtxt(FLAGS.path_to_ytest)
 
+    # TODO: rbfnn, svm, softmax
     return run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS)
     # return run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS)
 
