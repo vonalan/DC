@@ -22,15 +22,16 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
         begin = end
     return Hist
 
-def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
-    dataset = np.zeros((0, 162))
+def build_data_generator(filenames=None, shuffle=False, batch_size=1):
+    # dataset = np.zeros((0, 128))
+    dataset = None
     for filename in filenames:
         mini_batch = np.loadtxt(filename)
-        # if dataset == None:
-        #     dataset = mini_batch
-        # else:
-        #     dataset.vstack((dataset, mini_batch))
-        np.vstack((dataset, mini_batch))
+        if isinstance(dataset, np.ndarray):
+            dataset = np.vstack((dataset, mini_batch))
+        else:
+            dataset = mini_batch
+    print(dataset.shape)
     num_samples, num_features = dataset.shape
     num_batches = int(math.ceil(num_samples/batch_size))
     indices = np.arange(num_samples)
@@ -38,11 +39,10 @@ def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
         np.random.shuffle(indices)
     for batch in range(num_batches):
         start = batch * batch_size
-        end = (batch + 1) * batch_size
-        if end > num_samples:
-            end = num_samples
+        end = min((batch + 1) * batch_size, num_samples)
         mini_batch = dataset[start:end,:]
         yield mini_batch
+        # return mini_batch
 
 
 def writeLog(root, name, string):
@@ -86,4 +86,21 @@ def kmeans(root, name, X=None, outdim=4096, factor=4):
     return kms
 
 if __name__ == "__main__":
-    print("I'm ok! ")
+    filenames = ['../../data/x_1000_128.txt', '../../data/x_1000_128_kmeans_10.txt']
+    data_generator = build_data_generator(filenames=filenames, shuffle=False, batch_size=100)
+
+    import time
+    import itertools
+
+    for i in itertools.count():
+        try:
+            xs = next(data_generator)
+            print(i, xs.shape, xs.flatten()[:5])
+            time.sleep(0.5)
+        except Exception:
+            data_generator = build_data_generator(filenames=filenames, shuffle=False, batch_size=100)
+            xs = next(data_generator)
+            print(i, xs.shape, xs.flatten()[:5])
+            time.sleep(0.5)
+        if i > 1000:
+            break
