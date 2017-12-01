@@ -106,8 +106,8 @@ def run(outputs_train, outputs_eval, FLAGS):
     ts_train = np.loadtxt(FLAGS.path_to_ytrain)
     ts_test = np.loadtxt(FLAGS.path_to_ytest)
 
-    # return run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS)
-    return run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS)
+    return run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS)
+    # return run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS)
 
 def pseudo():
     c_train = np.loadtxt(FLAGS.path_to_ctrain).astype(np.int)

@@ -23,13 +23,14 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
     return Hist
 
 def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
-    dataset = None
+    dataset = np.zeros((0, 162))
     for filename in filenames:
         mini_batch = np.loadtxt(filename)
-        if dataset == None:
-            dataset = mini_batch
-        else:
-            dataset.vstack((dataset, mini_batch))
+        # if dataset == None:
+        #     dataset = mini_batch
+        # else:
+        #     dataset.vstack((dataset, mini_batch))
+        np.vstack((dataset, mini_batch))
     num_samples, num_features = dataset.shape
     num_batches = int(math.ceil(num_samples/batch_size))
     indices = np.arange(num_samples)
@@ -83,8 +84,6 @@ def kmeans(root, name, X=None, outdim=4096, factor=4):
     else:
         kms = joblib.load(mfile)
     return kms
-
-
 
 if __name__ == "__main__":
     print("I'm ok! ")

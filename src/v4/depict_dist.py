@@ -157,11 +157,8 @@ def main():
     tf.logging.set_verbosity(tf.logging.INFO)
     prepare_file_system()
 
-    # FLAGS.eval_step_interval = 1
-    # FLAGS.infer_step_interal = 1
-    # FLAGS.train_batch_size = 10000
-    # FLAGS.infer_batch_size = 10000
-    # FLAGS.eval_batch_size = 10000
+    FLAGS.eval_step_interval = 1
+    FLAGS.infer_step_interal = 10
 
     # TODO: OOP
     train_graph = tf.Graph()
@@ -210,6 +207,7 @@ def main():
     for i in itertools.count():
         try:
             xs_train = train_sess.run(train_elements)
+            # print(xs_train)
         except tf.errors.OutOfRangeError:
             train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [FLAGS.path_to_xtrain]})
             xs_train = train_sess.run(train_elements)
@@ -220,12 +218,12 @@ def main():
         # print('epoch: %6d, training cost: %.8f'%(i, training_cost))
         # time.sleep(1)
 
-        if i % FLAGS.eval_step_interval == 0:
-            print(train_sess.run(train_parameters['depict/weights:0']))
+        # if i % FLAGS.eval_step_interval == 0:
+        if i % pow(10, len(str(i)) - 1) == 0:
+            # print(train_sess.run(train_parameters[0]))
             checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
-            print(eval_sess.run(eval_parameters['depict/weiths:0']))
             eval_saver.restore(eval_sess, checkpoint_path)
-            print(eval_sess.run(eval_parameters['depict/weiths:0']))
+            # print(eval_sess.run(eval_parameters[0]))
             eval_sess.run(eval_iterator.initializer, feed_dict={eval_filenames: [FLAGS.path_to_xtest]})
             while FLAGS.data_to_eval:
                 try:
@@ -243,12 +241,13 @@ def main():
                 validation_writer.add_summary(eval_summary, i)
                 break
 
-        if i % FLAGS.infer_step_interval == 0:
+        # if i % FLAGS.infer_step_interval == 0:
+        if i % pow(10, len(str(i)) - 1) == 0:
             checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
             infer_saver.restore(infer_sess, checkpoint_path)
 
             infers_train = []
-            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtest]})
+            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtrain]})
             while FLAGS.data_to_infer:
                 try:
                     xs_infer = infer_sess.run(infer_elements)
@@ -259,13 +258,15 @@ def main():
             # print(infers_train)
 
             infers_test = []
-            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtrain]})
+            infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtest]})
             while FLAGS.data_to_infer:
                 try:
                     xs_infer = infer_sess.run(infer_elements)
                 except tf.errors.OutOfRangeError:
                     break
                 ys_infer = infer_sess.run(infer_outputs, feed_dict={infer_inputs: xs_infer})
+                print(xs_infer.shape, xs_infer.flatten())
+                print(ys_infer.shape, ys_infer.flatten())
                 infers_test.extend(ys_infer)
             # print(infers_test)
             metrics = classifier.run(infers_train, infers_test, FLAGS)
