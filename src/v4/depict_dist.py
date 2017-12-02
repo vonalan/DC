@@ -47,6 +47,7 @@ def build_depict_graph(inputs, kernel_shape, bias_shape):
     biases = tf.get_variable("biases", bias_shape,
         initializer=tf.constant_initializer(0.0))
     weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
+    # TODO: solve the overflow problem of softmax activations
     return tf.nn.softmax(weighted_sum)
 
 def variable_summaries(var, name=''):
@@ -75,6 +76,7 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
         U = tf.reshape(tf.constant(prior), (-1, output_dim))
         F = tf.reshape(tf.reduce_mean(Q, axis=0), (-1, output_dim))
     with tf.variable_scope('cost'):
+        # TODO: the range of tf.div(Q, P)
         if func == 'func_04':
             with tf.variable_scope('func_04'):
                 C = tf.multiply(Q, tf.log(tf.div(Q, P)))
@@ -412,7 +414,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--rbfnn_num_center',
         type=int,
-        default=128
+        default=120
     )
     parser.add_argument(
         '--rbfnn_output_dim',

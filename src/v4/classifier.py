@@ -29,7 +29,7 @@ from sklearn.svm import SVC
 
 import utils
 import rbfnn
-import stsm_pesudo as stsm
+import stsm_pseudo as stsm
 
 def calc_err(y_true, y_predict):
     return sklmse(y_true, y_predict, multioutput='raw_values')
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--depict_output_dim',
         type=int,
-        default=128
+        default=120
     )
     parser.add_argument(
         '--path_to_ctrain',
