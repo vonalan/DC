@@ -49,6 +49,17 @@ def build_depict_graph(inputs, kernel_shape, bias_shape):
     weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
     return tf.nn.softmax(weighted_sum)
 
+def variable_summaries(var, name=''):
+    with tf.variable_scope(name):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        with tf.name_scope('stddev'):
+          stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+        tf.summary.scalar('stddev', stddev)
+        tf.summary.scalar('max', tf.reduce_max(var))
+        tf.summary.scalar('min', tf.reduce_min(var))
+        tf.summary.histogram('histogram', var)
+
 def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
     inputs = tf.placeholder_with_default(defalut_inputs, shape=[None, input_dim], name='train_input')
     with tf.variable_scope('depict', reuse=False):
@@ -85,6 +96,8 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
                 C = tf.multiply(Q, tf.log(tf.div(Q, P)))
                 L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
                 cost = tf.reduce_mean(L, name='cost')
+    variable_summaries(P, 'predicted_distribution')
+    variable_summaries(Q, 'target_distribution')
     tf.summary.scalar('training_cost', cost)
     optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cost)
     return inputs, cost, optimizer
