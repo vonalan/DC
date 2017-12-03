@@ -62,8 +62,8 @@ def build_depict_graph(inputs, kernel_shape, bias_shape):
     # TODO: solve the overflow problem of softmax activations
     # TODO: tf.nn.softmax(weighted_sum) > 1e-32 (func_02, learning_rate=1e-2), or
     # TODO: tf.nn.softmax(weighted_sum) >= 9.99e-31 (func_02, learning_rate=1e-2)
-    return tf.nn.softmax(tf.layers.batch_normalization(weighted_sum))
-    # return tf.nn.softmax(weighted_sum)
+    # return tf.nn.softmax(tf.layers.batch_normalization(weighted_sum))
+    return tf.nn.softmax(weighted_sum)
 
 def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
     inputs = tf.placeholder_with_default(defalut_inputs, shape=[None, input_dim], name='train_input')
@@ -132,12 +132,15 @@ def build_metrics_graph(scope_name):
         acc_train = tf.placeholder(tf.float32, ())
         err_test = tf.placeholder(tf.float32, [FLAGS.rbfnn_output_dim])
         acc_test = tf.placeholder(tf.float32, ())
+        stsm_train = tf.placeholder(tf.float32, [FLAGS.rbfnn_output_dim])
 
         err_train_collipse = tf.reduce_mean(err_train)
         err_test_collipse = tf.reduce_mean(err_test)
+        stsm_train_collipse = tf.reduce_mean(stsm_train)
 
         tf.summary.scalar('err_train', err_train_collipse)
         tf.summary.scalar('acc_train', acc_train)
+        tf.summary.scalar('stsm_train', stsm_train_collipse)
         tf.summary.scalar('err_test', err_test_collipse)
         tf.summary.scalar('acc_test', acc_test)
     return dict(err_train=err_train,
@@ -149,11 +152,11 @@ def metrics_to_metrics(sess, merger, metrics_1, metrics_2):
     summary = sess.run(merger, feed_dict={
         metrics_1['err_train']: metrics_2['err_train'],
         metrics_1['acc_train']: metrics_2['acc_train'],
+        metrics_1['stsm_train']: metrics_2['stsm_train'],
         metrics_1['err_test']: metrics_2['err_test'],
         metrics_1['acc_test']: metrics_2['acc_test'],
     })
     return summary
-
 
 def prepare_file_system():
   # Setup the directory we'll write summaries to for TensorBoard
@@ -176,8 +179,8 @@ def main():
     tf.logging.set_verbosity(tf.logging.INFO)
     prepare_file_system()
 
-    FLAGS.eval_step_interval = 1
-    FLAGS.infer_step_interal = 10
+    # FLAGS.eval_step_interval = 1
+    # FLAGS.infer_step_interal = 10
 
     # TODO: OOP
     train_graph = tf.Graph()
@@ -185,7 +188,7 @@ def main():
         train_filenames, train_iterator, train_elements = \
             build_text_line_reader(shuffle=True, batch_size=FLAGS.train_batch_size)
         train_inputs, train_cost, optimizer = build_train_graph(
-            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim, func='func_02')
+            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim, func='func_04')
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
         train_initializer = tf.global_variables_initializer()
@@ -220,10 +223,15 @@ def main():
     validation_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/validation', eval_graph)
     infer_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/inference', infer_graph)
 
+    results = dict()
+
     train_sess.run(train_initializer)
     train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [FLAGS.path_to_xtrain]})
     # train_sess.run(train_iterator.initializer)
     for i in itertools.count():
+        if i > FLAGS.how_many_training_steps:
+            break
+
         try:
             xs_train = train_sess.run(train_elements)
             # print(xs_train)
@@ -263,6 +271,7 @@ def main():
         # if i % FLAGS.infer_step_interval == 0:
         if i % pow(10, len(str(i)) - 1) == 0:
             checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
+            train_saver.save(train_sess, FLAGS.saved_model_dir + '/checkpoints_k_' + str(FLAGS.depict_output_dim), global_step=i)
             infer_saver.restore(infer_sess, checkpoint_path)
 
             infers_train = []
@@ -293,143 +302,62 @@ def main():
             pprint.pprint(metrics)
             infer_summary = metrics_to_metrics(infer_sess, infer_merger, rbfnn_metrics, metrics)
             infer_writer.add_summary(infer_summary, i)
+            results[str(i)] = metrics
+    train_sess.close()
+    eval_sess.close()
+    infer_sess.close()
+    return results
 
 if __name__ == "__main__":
-    # train_filenames, train_iterator, train_elements = \
-    #     build_text_line_reader(shuffle=True, batch_size=20000)
-    # train_sess = tf.Session()
-    # train_sess.run(train_iterator.initializer, feed_dict={train_filenames:[r'../../data/x_1000_128.txt']})
-    # # train_sess.run(train_iterator.initializer)
-    # for i in range(30):
-    #     try:
-    #         print(i, train_sess.run(train_elements).shape)
-    #     except tf.errors.OutOfRangeError:
-    #         train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [r'../../data/x_1000_128.txt']})
-    #         print(i, train_sess.run(train_elements).shape)
-    #         # raise Exception()
-    #     time.sleep(1)
+    class CONFIGS(object):
+        path_to_ctrain = r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctrain_r9.txt'
+        path_to_xtrain = r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtrain_r9.txt'
+        path_to_ytrain = r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ytrain_r9.txt'
+        path_to_ctest = r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctest_r9.txt'
+        path_to_xtest = r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtest_r9.txt'
+        path_to_ytest = r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ytest_r9.txt'
+        summaries_dir = r'../../temp/logs'
+        checkpoints_dir = r'../../temp/models'
+        saved_model_dir = '../../models'
+        how_many_training_steps = 10
+        learning_rate = 0.01
+        eval_step_interval = 10
+        infer_step_interval = 100
+        train_batch_size = 10000
+        eval_batch_size = 10000
+        infer_batch_size = 100000
+        data_to_eval = True
+        data_to_infer = True
+        loss_function = 'func_04'
 
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--depict_input_dim',
-        type=int,
-        default=162
-    )
-    parser.add_argument(
-        '--depict_output_dim',
-        type=int,
-        default=1024
-    )
-    parser.add_argument(
-        '--path_to_ctrain',
-        type=str,
-        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctrain_r9.txt'
-    )
-    parser.add_argument(
-        '--path_to_xtrain',
-        type=str,
-        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtrain_r9.txt'
-    )
-    parser.add_argument(
-        '--path_to_ytrain',
-        type=str,
-        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ytrain_r9.txt'
-    )
-    parser.add_argument(
-        '--path_to_ctest',
-        type=str,
-        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctest_r9.txt'
-    )
-    parser.add_argument(
-        '--path_to_xtest',
-        type=str,
-        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtest_r9.txt'
-    )
-    parser.add_argument(
-        '--path_to_ytest',
-        type=str,
-        default=r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ytest_r9.txt'
-    )
-    parser.add_argument(
-        '--summaries_dir',
-        type=str,
-        default='../../temp/logs',
-        help='Where to save summary logs for TensorBoard.'
-    )
-    parser.add_argument(
-        '--checkpoints_dir',
-        type=str,
-        default='../../temp/models',
-        help='Where to save summary logs for TensorBoard.'
-    )
-    parser.add_argument(
-        '--how_many_training_steps',
-        type=int,
-        default=40000,
-        help='How many training steps to run before ending.'
-    )
-    parser.add_argument(
-        '--learning_rate',
-        type=float,
-        default=0.01,
-        help='How large a learning rate to use when training.'
-    )
-    parser.add_argument(
-        '--eval_step_interval',
-        type=int,
-        default=10,
-        help='How often to evaluate the training results.'
-    )
-    parser.add_argument(
-        '--infer_step_interval',
-        type=int,
-        default=100,
-        help='How often to evaluate the training results.'
-    )
-    parser.add_argument(
-        '--train_batch_size',
-        type=int,
-        default=10000,
-        help='How many images to train on at a time.'
-    )
-    parser.add_argument(
-        '--infer_batch_size',
-        type=int,
-        default=100000,  # 1 for attention, -1 for others
-        help='How many images to test on at a time.'
-    )
-    parser.add_argument(
-        '--eval_batch_size',
-        type=int,
-        default=10000,
-        help='How many images to use in an evaluation batch.'
-    )
-    parser.add_argument(
-        '--data_to_eval',
-        type=bool,
-        default=True
-    )
-    parser.add_argument(
-        '--data_to_infer',
-        type=bool,
-        default=True
-    )
-    parser.add_argument(
-        '--rbfnn_num_center',
-        type=int,
-        default=120
-    )
-    parser.add_argument(
-        '--rbfnn_output_dim',
-        type=int,
-        default=6
-    )
-    parser.add_argument(
-        '--number_classes',
-        type=int,
-        default=6
-    )
-    FLAGS, unparsed = parser.parse_known_args()
-    pprint.pprint(FLAGS)
-    main()
+        def __init__(self, depict_input_dim=162, depict_output_dim=4096,
+                     rbfnn_input_dim=4096, rbfnn_num_center=120, rbfnn_output_dim=6):
+            self.depict_input_dim = depict_input_dim
+            self.depict_output_dim = depict_output_dim
+            self.rbfnn_input_dim = self.depict_output_dim
+            self.rbfnn_num_center = rbfnn_num_center
+            self.rbfnn_output_dim = rbfnn_output_dim
+
+
+    results = dict()
+    m = 120
+    for i in range(7, 12 + 1):
+        k = 1 << i
+        FLAGS = CONFIGS(depict_output_dim=k, rbfnn_output_dim=m)
+        print(FLAGS.depict_output_dim)
+        metrics = main()
+        results[str(k)] = metrics
+    print(results)
+
+    with open('../../results/result.txt') as f:
+        for k, v in results.items():
+            for e, metrics in v.items():
+                line = list()
+                line.extend([m, k, e])
+                line.extend(metrics['err_train'].tolist())
+                line.extend(metrics['acc_train'].tolist())
+                line.extend(metrics['stsm_train'].tolist())
+                line.extend(metrics['err_test'].tolist())
+                line.extend(metrics['acc_test'].tolist())
+                line = ' '.join(line)
+                f.write(line)
