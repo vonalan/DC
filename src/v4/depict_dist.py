@@ -58,7 +58,7 @@ def build_depict_graph(inputs, kernel_shape, bias_shape):
     biases = tf.get_variable("biases", bias_shape,
         initializer=tf.constant_initializer(0.0))
     weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
-    variable_summaries(weighted_sum, 'weighted_sum')
+    # variable_summaries(weighted_sum, 'weighted_sum')
     # TODO: solve the overflow problem of softmax activations
     # TODO: tf.nn.softmax(weighted_sum) > 1e-32 (func_02, learning_rate=1e-2), or
     # TODO: tf.nn.softmax(weighted_sum) >= 9.99e-31 (func_02, learning_rate=1e-2)
@@ -185,7 +185,7 @@ def main():
         train_filenames, train_iterator, train_elements = \
             build_text_line_reader(shuffle=True, batch_size=FLAGS.train_batch_size)
         train_inputs, train_cost, optimizer = build_train_graph(
-            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim, func='func_04')
+            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim, func='func_02')
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
         train_initializer = tf.global_variables_initializer()
