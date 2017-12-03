@@ -41,15 +41,6 @@ def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
     next_elements = iterator.get_next()
     return filenames, iterator, next_elements
 
-def build_depict_graph(inputs, kernel_shape, bias_shape):
-    weights = tf.get_variable("weights", kernel_shape,
-        initializer=tf.random_normal_initializer())
-    biases = tf.get_variable("biases", bias_shape,
-        initializer=tf.constant_initializer(0.0))
-    weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
-    # TODO: solve the overflow problem of softmax activations
-    return tf.nn.softmax(weighted_sum)
-
 def variable_summaries(var, name=''):
     with tf.variable_scope(name):
         mean = tf.reduce_mean(var)
@@ -60,6 +51,18 @@ def variable_summaries(var, name=''):
         tf.summary.scalar('max', tf.reduce_max(var))
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
+
+def build_depict_graph(inputs, kernel_shape, bias_shape):
+    weights = tf.get_variable("weights", kernel_shape,
+        initializer=tf.random_normal_initializer())
+    biases = tf.get_variable("biases", bias_shape,
+        initializer=tf.constant_initializer(0.0))
+    weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
+    # TODO: solve the overflow problem of softmax activations
+    # TODO: tf.nn.softmax(weighted_sum) > 1e-32 (func_02, learning_rate=1e-2), or
+    # TODO: tf.nn.softmax(weighted_sum) >= 9.99e-31 (func_02, learning_rate=1e-2)
+    return tf.nn.softmax(tf.layers.batch_normalization(weighted_sum))
+    # return tf.nn.softmax(weighted_sum)
 
 def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
     inputs = tf.placeholder_with_default(defalut_inputs, shape=[None, input_dim], name='train_input')
@@ -181,7 +184,7 @@ def main():
         train_filenames, train_iterator, train_elements = \
             build_text_line_reader(shuffle=True, batch_size=FLAGS.train_batch_size)
         train_inputs, train_cost, optimizer = build_train_graph(
-            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim)
+            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim, func='func_04')
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
         train_initializer = tf.global_variables_initializer()
