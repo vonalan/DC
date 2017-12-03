@@ -58,6 +58,7 @@ def build_depict_graph(inputs, kernel_shape, bias_shape):
     biases = tf.get_variable("biases", bias_shape,
         initializer=tf.constant_initializer(0.0))
     weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
+    variable_summaries(weighted_sum, 'weighted_sum')
     # TODO: solve the overflow problem of softmax activations
     # TODO: tf.nn.softmax(weighted_sum) > 1e-32 (func_02, learning_rate=1e-2), or
     # TODO: tf.nn.softmax(weighted_sum) >= 9.99e-31 (func_02, learning_rate=1e-2)
