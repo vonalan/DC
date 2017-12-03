@@ -98,10 +98,8 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
                 L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
                 cost = tf.reduce_mean(L, name='cost')
         else:
-            with tf.variable_scope('func_02'):
-                C = tf.multiply(Q, tf.log(tf.div(Q, P)))
-                L = tf.reshape(tf.reduce_sum(C, axis=1), (-1, 1))
-                cost = tf.reduce_mean(L, name='cost')
+            cost = 0
+            raise Exception('the loss function must be assigned! ')
     variable_summaries(P, 'predicted_distribution')
     variable_summaries(Q, 'target_distribution')
     tf.summary.scalar('training_cost', cost)
@@ -145,6 +143,7 @@ def build_metrics_graph(scope_name):
         tf.summary.scalar('acc_test', acc_test)
     return dict(err_train=err_train,
                 acc_train=acc_train,
+                stsm_train=stsm_train,
                 err_test=err_test,
                 acc_test=acc_test)
 
@@ -188,7 +187,7 @@ def main():
         train_filenames, train_iterator, train_elements = \
             build_text_line_reader(shuffle=True, batch_size=FLAGS.train_batch_size)
         train_inputs, train_cost, optimizer = build_train_graph(
-            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim, func='func_04')
+            train_elements, FLAGS.depict_input_dim, FLAGS.depict_output_dim, func=FLAGS.loss_function)
         train_saver = tf.train.Saver()
         train_merger = tf.summary.merge_all()
         train_initializer = tf.global_variables_initializer()
@@ -215,13 +214,14 @@ def main():
         infer_merger = tf.summary.merge_all()
         infer_initializer = tf.global_variables_initializer()
 
-    train_sess = tf.Session(graph=train_graph)
-    eval_sess = tf.Session(graph=eval_graph)
-    infer_sess = tf.Session(graph=infer_graph)
+    config = tf.ConfigProto(device_count={"CPU": 24, "GPU": 0})
+    train_sess = tf.Session(graph=train_graph, config=config)
+    eval_sess = tf.Session(graph=eval_graph, config=config)
+    infer_sess = tf.Session(graph=infer_graph, config=config)
 
-    train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train', train_graph)
-    validation_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/validation', eval_graph)
-    infer_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/inference', infer_graph)
+    # train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train', train_graph)
+    # validation_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/validation', eval_graph)
+    # infer_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/inference', infer_graph)
 
     results = dict()
 
@@ -241,7 +241,7 @@ def main():
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
         _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger],
                                                          feed_dict={train_inputs: xs_train})
-        train_writer.add_summary(train_summary, i)
+        # train_writer.add_summary(train_summary, i)
         # print('epoch: %6d, training cost: %.8f'%(i, training_cost))
         # time.sleep(1)
 
@@ -265,13 +265,13 @@ def main():
                 evaluation_cost, eval_summary = train_sess.run([train_cost, train_merger], feed_dict={train_inputs: xs_eval})
                 tf.logging.info("epoch: %d, training cost: %f"%(i, training_cost))
                 tf.logging.info("epoch: %d, evaluation cost: %f" % (i, evaluation_cost))
-                validation_writer.add_summary(eval_summary, i)
+                # validation_writer.add_summary(eval_summary, i)
                 break
 
         # if i % FLAGS.infer_step_interval == 0:
         if i % pow(10, len(str(i)) - 1) == 0:
             checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
-            train_saver.save(train_sess, FLAGS.saved_model_dir + '/checkpoints_k_' + str(FLAGS.depict_output_dim), global_step=i)
+            train_saver.save(train_sess, FLAGS.saved_model_dir + '/checkpoints_' + str(FLAGS.depict_output_dim), global_step=i)
             infer_saver.restore(infer_sess, checkpoint_path)
 
             infers_train = []
@@ -298,17 +298,32 @@ def main():
                 infers_test.extend(ys_infer)
             # print(infers_test)
             metrics = classifier.run(infers_train, infers_test, FLAGS)
-            # print(metrics)
             pprint.pprint(metrics)
-            infer_summary = metrics_to_metrics(infer_sess, infer_merger, rbfnn_metrics, metrics)
-            infer_writer.add_summary(infer_summary, i)
-            results[str(i)] = metrics
+            # infer_summary = metrics_to_metrics(infer_sess, infer_merger, rbfnn_metrics, metrics)
+            # infer_writer.add_summary(infer_summary, i)
+            results[i] = metrics
+
+            # TODO:
+            with open('../../results/results.txt', 'a') as f:
+                line = list()
+                line.extend([FLAGS.rbfnn_num_center, FLAGS.depict_output_dim, i])
+                line.extend(metrics['err_train'].tolist())
+                line.extend([metrics['acc_train']])
+                line.extend(metrics['stsm_train'].tolist())
+                line.extend(metrics['err_test'].tolist())
+                line.extend([metrics['acc_test']])
+                line = [str(item) for item in line]
+                line = ' '.join(line)
+                f.write(line)
+                f.write('\n')
     train_sess.close()
     eval_sess.close()
     infer_sess.close()
     return results
 
 if __name__ == "__main__":
+    import time
+
     class CONFIGS(object):
         path_to_ctrain = r'D:\Users\kingdom\GIT\DC_OLD\data\kth_ctrain_r9.txt'
         path_to_xtrain = r'D:\Users\kingdom\GIT\DC_OLD\data\kth_xtrain_r9.txt'
@@ -319,7 +334,7 @@ if __name__ == "__main__":
         summaries_dir = r'../../temp/logs'
         checkpoints_dir = r'../../temp/models'
         saved_model_dir = '../../models'
-        how_many_training_steps = 10
+        how_many_training_steps = 1000
         learning_rate = 0.01
         eval_step_interval = 10
         infer_step_interval = 100
@@ -330,7 +345,7 @@ if __name__ == "__main__":
         data_to_infer = True
         loss_function = 'func_04'
 
-        def __init__(self, depict_input_dim=162, depict_output_dim=4096,
+        def __init__(self, depict_input_dim=162, depict_output_dim=1024,
                      rbfnn_input_dim=4096, rbfnn_num_center=120, rbfnn_output_dim=6):
             self.depict_input_dim = depict_input_dim
             self.depict_output_dim = depict_output_dim
@@ -338,26 +353,27 @@ if __name__ == "__main__":
             self.rbfnn_num_center = rbfnn_num_center
             self.rbfnn_output_dim = rbfnn_output_dim
 
-
     results = dict()
     m = 120
     for i in range(7, 12 + 1):
         k = 1 << i
-        FLAGS = CONFIGS(depict_output_dim=k, rbfnn_output_dim=m)
+        FLAGS = CONFIGS(depict_output_dim=k, rbfnn_num_center=m)
         print(FLAGS.depict_output_dim)
         metrics = main()
-        results[str(k)] = metrics
-    print(results)
-
-    with open('../../results/result.txt') as f:
-        for k, v in results.items():
-            for e, metrics in v.items():
-                line = list()
-                line.extend([m, k, e])
-                line.extend(metrics['err_train'].tolist())
-                line.extend(metrics['acc_train'].tolist())
-                line.extend(metrics['stsm_train'].tolist())
-                line.extend(metrics['err_test'].tolist())
-                line.extend(metrics['acc_test'].tolist())
-                line = ' '.join(line)
-                f.write(line)
+        results[k] = metrics
+        # print(results)
+        time.sleep(1)
+    # print(results)
+    #
+    # with open('../../results/result.txt', 'w') as f:
+    #     for k, v in results.items():
+    #         for e, metrics in v.items():
+    #             line = list()
+    #             line.extend([m, k, e])
+    #             line.extend(metrics['err_train'].tolist())
+    #             line.extend([metrics['acc_train']])
+    #             line.extend(metrics['stsm_train'].tolist())
+    #             line.extend(metrics['err_test'].tolist())
+    #             line.extend([metrics['acc_test']])
+    #             line = ' '.join(line)
+    #             f.write(line)
