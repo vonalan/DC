@@ -17,7 +17,6 @@ import os
 import sys 
 import math
 import time
-import shutil
 import datetime as dt
 import itertools
 import pprint
@@ -249,14 +248,8 @@ def main():
         # if i % FLAGS.eval_step_interval == 0:
         if i % pow(10, len(str(i)) - 1) == 0:
             # print(train_sess.run(train_parameters[0]))
+
             checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
-            print(checkpoint_path)
-            # TODO:
-            checkpoint = os.path.basename(checkpoint_path)
-            shutil.copy(checkpoint_path, os.path.join(FLAGS.saved_model_dir, checkpoint + '.meta'))
-            shutil.copy(checkpoint_path, os.path.join(FLAGS.saved_model_dir, checkpoint + '.index'))
-            shutil.copy(checkpoint_path, os.path.join(FLAGS.saved_model_dir, checkpoint + '.data-00000-of-00001'))
-            # TODO:
             eval_saver.restore(eval_sess, checkpoint_path)
             # print(eval_sess.run(eval_parameters[0]))
             eval_sess.run(eval_iterator.initializer, feed_dict={eval_filenames: [FLAGS.path_to_xtest]})
@@ -279,13 +272,6 @@ def main():
         # if i % FLAGS.infer_step_interval == 0:
         if i % pow(10, len(str(i)) - 1) == 0:
             checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
-            print(checkpoint_path)
-            # TODO:
-            checkpoint = os.path.basename(checkpoint_path)
-            shutil.copy(checkpoint_path, os.path.join(FLAGS.saved_model_dir, checkpoint + '.meta'))
-            shutil.copy(checkpoint_path, os.path.join(FLAGS.saved_model_dir, checkpoint + '.index'))
-            shutil.copy(checkpoint_path, os.path.join(FLAGS.saved_model_dir, checkpoint + '.data-00000-of-00001'))
-            # TODO:
             train_saver.save(train_sess, FLAGS.saved_model_dir + '/checkpoints_k_' + str(FLAGS.depict_output_dim), global_step=i)
             infer_saver.restore(infer_sess, checkpoint_path)
 
