@@ -185,5 +185,6 @@ class Network(object):
     def predict(self, trainX):
         H = self.activCalc(trainX)
         output = np.dot(H, self.W)
+        # print(output.shape, trainX.shape)
         assert np.shape(output) == (np.shape(trainX)[0], self.outdim)
         return output
