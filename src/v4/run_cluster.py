@@ -51,7 +51,7 @@ for i in range(7, 16 + 1):
     print(num_cluster)
     FLAGS.depict_output_dim = num_cluster
     FLAGS.rbfnn_input_dim = num_cluster
-    kms = cluster.build_kmeans_model_with_fixed_inputs(FLAGS, num_cluster)
+    kms = cluster.build_kmeans_model_with_fixed_input(FLAGS)
     ca_train = kms.predict(xtrain)
     ca_test = kms.predict(xtest)
     metrics = classifier.run(ca_train, ca_test, FLAGS)
