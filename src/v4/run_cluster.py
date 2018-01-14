@@ -34,7 +34,7 @@ parser.add_argument('--rbfnn_output_dim', type=int, default=num_classes)
 parser.add_argument('--save_model_dir', type=str, default='../../models/')
 parser.add_argument('--save_results_dir', type=str, default='../../results/')
 FLAGS, _ = parser.parse_known_args()
-pprint.pprint(FLAGS)
+# pprint.pprint(FLAGS)
 
 
 import cluster
@@ -51,10 +51,13 @@ for i in range(7, 16 + 1):
     print(num_cluster)
     FLAGS.depict_output_dim = num_cluster
     FLAGS.rbfnn_input_dim = num_cluster
+    pprint.pprint(FLAGS)
+
     kms = cluster.build_kmeans_model_with_fixed_input(FLAGS)
     ca_train = kms.predict(xtrain)
     ca_test = kms.predict(xtest)
     metrics = classifier.run(ca_train, ca_test, FLAGS)
+    pprint.pprint(metrics)
 
     # TODO:
     if not os.path.exists(FLAGS.save_results_dir): os.makedirs(FLAGS.save_results_dir)

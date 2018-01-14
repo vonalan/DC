@@ -72,7 +72,7 @@ def build_kmeans_model_with_random_input(root, name, X=None, outdim=4096, factor
 def main():
     xs_train = np.loadtxt(FLAGS.path_to_xtrain)
     xs_test = np.loadtxt(FLAGS.path_to_xtest)
-    kms = build_kmeans_model(FLAGS.model_dir, 'kmeans', xs_train, FLAGS.depict_output_dim)
+    kms = build_kmeans_model_with_random_input(FLAGS.model_dir, 'kmeans', xs_train, FLAGS.depict_output_dim)
     outputs_train = kms.predict(xs_train)
     output_test = kms.predict(xs_test)
     metrics = classifier.run(outputs_train, output_test, FLAGS)
