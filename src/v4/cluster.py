@@ -15,6 +15,7 @@ from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
 FLAGS = None
 
+
 def build_word_vector(lineDataSet, lineCount, bins=4096):
     Hist = np.zeros((0, bins))
     begin = 0
@@ -25,9 +26,30 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
         begin = end
     return Hist
 
-def build_kmeans_model(root, name, X=None, outdim=4096, factor=4):
+
+def build_kmeans_model_with_fixed_input(FLAGS):
     from sklearn.externals import joblib
     from sklearn.cluster import KMeans
+
+    xrand = np.loadtxt(FLAGS.path_to_xrand)
+
+    num_samples = xrand.shape[0]
+    assert num_samples == 100000
+
+    if not os.path.exists(FLAGS.save_model_dir): os.makedirs(FLAGS.save_model_dir)
+    mfile = os.path.join(FLAGS.save_model_dir, r"%s_r%d_kmeans_k%d_m%d.m" % (FLAGS.database_name, FLAGS.split_round, FLAGS.depict_output_dim, num_samples))
+    if not os.path.exists(mfile):
+        kms = KMeans(n_clusters=FLAGS.depict_output_dim).fit(xrand)
+        joblib.dump(kms, mfile, compress=3)
+    else:
+        kms = joblib.load(mfile)
+    return kms
+
+
+def build_kmeans_model_with_random_input(root, name, X=None, outdim=4096, factor=4):
+    from sklearn.externals import joblib
+    from sklearn.cluster import KMeans
+
     dstdir = os.path.join(root, name)
     if not os.path.exists(dstdir): os.makedirs(dstdir)
     # num_samples = 100000 if factor <= 0 else outdim * factor

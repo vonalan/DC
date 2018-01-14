@@ -44,7 +44,6 @@ def build_data_generator(filenames=None, shuffle=False, batch_size=1):
         yield mini_batch
         # return mini_batch
 
-
 def writeLog(root, name, string):
     if not os.path.exists(root): os.mkdir(root)
     file = r'%s/%s.txt'%(root, name)
