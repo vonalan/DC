@@ -32,6 +32,7 @@ def build_kmeans_model_with_fixed_input(FLAGS):
     from sklearn.cluster import KMeans
 
     xrand = np.loadtxt(FLAGS.path_to_xrand)
+    print(xrand.shape)
 
     num_samples = xrand.shape[0]
     assert num_samples == 100000
@@ -41,8 +42,10 @@ def build_kmeans_model_with_fixed_input(FLAGS):
     if not os.path.exists(mfile):
         kms = KMeans(n_clusters=FLAGS.depict_output_dim).fit(xrand)
         joblib.dump(kms, mfile, compress=3)
+        print('%s is saved! ' % (mfile))
     else:
         kms = joblib.load(mfile)
+        print('%s is loaded! ' % (mfile))
     return kms
 
 
