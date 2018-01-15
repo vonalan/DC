@@ -3,6 +3,7 @@
 # requirements: 
 #   Anaconda3
 #   Tensorflow
+#   Keras
 
 # feature works: 
 #     moving average 
@@ -10,8 +11,8 @@
 #     RNN
 #     distributions
 #     vector representations of words
-#         continuous bag-of-words model (CBOW)
-#         Skip-Gram Model
+#     continuous bag-of-words model (CBOW)
+#     Skip-Gram Model
 
 import os 
 import sys 
@@ -22,7 +23,9 @@ import itertools
 import pprint
 
 import numpy as np 
-import tensorflow as tf 
+import tensorflow as tf
+from keras.layers import Input, Dense
+from keras.models import Model
 from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
@@ -51,6 +54,36 @@ def variable_summaries(var, name=''):
         tf.summary.scalar('max', tf.reduce_max(var))
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
+
+def build_basic_model(input_shape, output_shape):
+    from keras.activations import softmax
+    inputs = Input(shape=input_shape)
+    x = inputs
+    x = Dense(4096, activation=softmax, use_bias=True)(x)
+    outputs = x
+    model = Model(inputs, outputs)
+    return model
+
+def build_train_graph(input_shape, output_shape, basic_model):
+    from keras import backend as keras
+
+    inputs = Input(shape=input_shape)
+    x = inputs
+    P = basic_model(x)
+
+    N = keras.reshape(keras.sum(P, axis=0), (-1, 4096))
+    N = P / keras.pow(N, 0.5)
+    D = keras.reshape(keras.sum(N, 1), (-1, 1))
+    Q = N / D
+
+    # TODO: make U trainable!!!
+    prior = [1 / float(4096)] * 4096
+    U = keras.variable(prior)
+    F = keras.reshape(keras.mean(Q, axis=0), (-1, 4096))
+
+    C = Q * keras.log(Q / P)
+    R = Q * keras.log(F / U)
+    L = keras.reshape(keras.sum(C + R, axis=1), (-1, 1))
 
 def build_depict_graph(inputs, kernel_shape, bias_shape):
     weights = tf.get_variable("weights", kernel_shape,

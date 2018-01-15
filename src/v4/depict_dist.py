@@ -76,6 +76,7 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
         D = tf.reshape(tf.reduce_sum(N, 1), (-1, 1))
         Q = tf.div(N, D)
     with tf.variable_scope('regularization'):
+        # TODO: make U trainable!!!
         prior = [1 / float(output_dim)] * output_dim
         U = tf.reshape(tf.constant(prior), (-1, output_dim))
         F = tf.reshape(tf.reduce_mean(Q, axis=0), (-1, output_dim))
