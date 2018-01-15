@@ -13,9 +13,9 @@ from sklearn.preprocessing import minmax_scale as sklscale
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
 split_round = 9
-database_name = 'ucf'
-database_root = r'D:\Users\kingdom\Datasets\UCF'
-num_classes = 10
+database_name = 'kth'
+database_root = r'D:\Users\kingdom\Datasets\KTH'
+num_classes = 6
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--database_name', type=str, default=database_name)
@@ -43,7 +43,8 @@ import classifier
 
 xtrain = np.loadtxt(FLAGS.path_to_xtrain)
 xtest = np.loadtxt(FLAGS.path_to_xtest)
-print(xtrain.shape, xtest.shape)
+xrand = np.loadtxt(FLAGS.path_to_xrand)
+print(xtrain.shape, xtest.shape, xrand.shape)
 
 FLAGS.rbfnn_num_center = 120
 for i in range(7, 16 + 1):
@@ -53,7 +54,8 @@ for i in range(7, 16 + 1):
     FLAGS.rbfnn_input_dim = num_cluster
     pprint.pprint(FLAGS)
 
-    kms = cluster.build_kmeans_model_with_fixed_input(FLAGS)
+    # kms = cluster.build_kmeans_model_with_fixed_input(FLAGS, xrand)
+    kms = cluster.build_kmeans_model_with_random_input(FLAGS, xtrain)
     ca_train = kms.predict(xtrain)
     ca_test = kms.predict(xtest)
     metrics = classifier.run(ca_train, ca_test, FLAGS)
@@ -61,7 +63,7 @@ for i in range(7, 16 + 1):
 
     # TODO:
     if not os.path.exists(FLAGS.save_results_dir): os.makedirs(FLAGS.save_results_dir)
-    outfile = os.path.join(FLAGS.save_results_dir, '%s_%d_kmeans_results.txt'%(FLAGS.database_name, FLAGS.split_rounds))
+    outfile = os.path.join(FLAGS.save_results_dir, '%s_r%d_kmeans_results.txt'%(FLAGS.database_name, FLAGS.split_round))
     with open(outfile, 'a') as f:
         line = list()
         line.extend([FLAGS.rbfnn_num_center, FLAGS.depict_output_dim, 0])

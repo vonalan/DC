@@ -234,20 +234,24 @@ def main():
         if i > FLAGS.how_many_training_steps:
             break
 
+        '''
         try:
             # xs_train = train_sess.run(train_elements)
-            xs_train = train_generator.next()
+            # xs_train = train_generator.next()
+            xs_train = next(train_generator)
             # print(xs_train)
         except tf.errors.OutOfRangeError:
             # train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [FLAGS.path_to_xtrain]})
             train_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtrain], shuffle=True, batch_size=FLAGS.train_batch_size)
-            xs_train = train_sess.run(train_elements)
+            # xs_train = train_generator.next()
+            xs_train = next(train_generator)
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
         _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger], feed_dict={train_inputs: xs_train})
 
         # train_writer.add_summary(train_summary, i)
         # print('epoch: %6d, training cost: %.8f'%(i, training_cost))
         # time.sleep(1)
+        '''
 
         '''
         # if i % FLAGS.eval_step_interval == 0:
@@ -286,8 +290,11 @@ def main():
             while FLAGS.data_to_infer:
                 try:
                     # xs_infer = infer_sess.run(infer_elements)
-                    xs_infer = infer_generator.next()
-                except tf.errors.OutOfRangeError:
+                    # xs_infer = infer_generator.next()
+                    xs_infer = next(infer_generator)
+                    print(xs_infer.shape)
+                # except tf.errors.OutOfRangeError:
+                except Exception:
                     break
                 ys_infer = infer_sess.run(infer_outputs, feed_dict={infer_inputs: xs_infer})
                 infers_train.extend(ys_infer)
@@ -299,8 +306,10 @@ def main():
             while FLAGS.data_to_infer:
                 try:
                     # xs_infer = infer_sess.run(infer_elements)
-                    xs_infer = infer_generator.next()
-                except tf.errors.OutOfRangeError:
+                    # xs_infer = infer_generator.next()
+                    xs_infer = next(infer_generator)
+                # except tf.errors.OutOfRangeError:
+                except Exception:
                     break
                 ys_infer = infer_sess.run(infer_outputs, feed_dict={infer_inputs: xs_infer})
                 # print(xs_infer.shape, xs_infer.flatten())
@@ -314,7 +323,7 @@ def main():
             results[i] = metrics
 
             # TODO:
-            with open('../../results/results.txt', 'a') as f:
+            with open('../../results/resultsx.txt', 'a') as f:
                 line = list()
                 line.extend([FLAGS.rbfnn_num_center, FLAGS.depict_output_dim, i])
                 line.extend(metrics['err_train'].tolist())
@@ -341,9 +350,9 @@ if __name__ == "__main__":
         path_to_ctest = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_ctest_r9.txt"
         path_to_xtest = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_xtest_r9.txt"
         path_to_ytest = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_ytest_r9.txt"
-        summaries_dir = r'../../temp/logs'
-        checkpoints_dir = r'../../temp/models'
-        saved_model_dir = '../../models'
+        summaries_dir = r'../../temp/logsx'
+        checkpoints_dir = r'../../temp/modelsx'
+        saved_model_dir = '../../modelsx'
         how_many_training_steps = 1000
         learning_rate = 0.01
         eval_step_interval = 10
