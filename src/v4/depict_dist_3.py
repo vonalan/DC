@@ -13,22 +13,78 @@
 #         continuous bag-of-words model (CBOW)
 #         Skip-Gram Model
 
-import os 
-import sys 
+import os
+import sys
 import math
 import time
 import datetime as dt
 import itertools
 import pprint
+import argparse
 
-import numpy as np 
-import tensorflow as tf 
+import numpy as np
+import tensorflow as tf
 from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
+split_round = 10
+database_name = 'kth'
+database_root = r'D:\Users\kingdom\Datasets\KTH'
+num_classes = 6
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--database_name', type=str, default=database_name)
+parser.add_argument('--split_round', type=int, default=split_round)
+parser.add_argument('--number_classes', type=int, default=num_classes)
+parser.add_argument('--path_to_ctrain', type=str,
+                    default=os.path.join(database_root, 'data\pwd\%s_ctrain_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_xtrain', type=str,
+                    default=os.path.join(database_root, 'data\pwd\%s_xtrain_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_ytrain', type=str,
+                    default=os.path.join(database_root, 'data\pwd\%s_ytrain_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_ctest', type=str,
+                    default=os.path.join(database_root, 'data\pwd\%s_ctest_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_xtest', type=str,
+                    default=os.path.join(database_root, 'data\pwd\%s_xtest_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_ytest', type=str,
+                    default=os.path.join(database_root, 'data\pwd\%s_ytest_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_xrand', type=str,
+                    default=os.path.join(database_root, 'data\pwd\%s_xrand_r%d.txt' % (database_name, split_round)))
+
+parser.add_argument('--loss_function', type=str, default='func_04')
+parser.add_argument('--depict_input_dim', type=int, default=162)
+parser.add_argument('--depict_output_dim', type=int, default=-1)
+
+parser.add_argument('--rbfnn_input_dim', type=int, default=-1)
+parser.add_argument('--rbfnn_num_center', type=int, default=-1)
+parser.add_argument('--rbfnn_output_dim', type=int, default=num_classes)
+
+parser.add_argument('--summaries_dir', type=str, default='../../temp/logs')
+parser.add_argument('--checkpoints_dir', type=str, default='../../temp/models')
+parser.add_argument('--saved_model_dir', type=str, default='../../models/')
+parser.add_argument('--saved_results_dir', type=str, default='../../results/')
+
+parser.add_argument('--how_many_training_steps', type=int, default=40000)
+parser.add_argument('--learning_rate', type=float, default=0.01)
+parser.add_argument('--eval_step_interval', type=int, default=10)
+parser.add_argument('--infer_step_interval', type=int, default=100)
+parser.add_argument('--train_batch_size', type=int, default=10000)
+parser.add_argument('--eval_batch_size', type=int, default=10000)
+parser.add_argument('--infer_batch_size', type=int, default=100000)
+parser.add_argument('--data_to_eval', type=bool, default=True)
+parser.add_argument('--data_to_infer', type=bool, default=True)
+
+FLAGS, _ = parser.parse_known_args()
+# pprint.pprint(FLAGS)
+
 import classifier
 
-FLAGS = None
+xtrain = np.loadtxt(FLAGS.path_to_xtrain)
+xtest = np.loadtxt(FLAGS.path_to_xtest)
+xrand = np.loadtxt(FLAGS.path_to_xrand)
+print(xtrain.shape, xtest.shape, xrand.shape)
+
 
 def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
     filenames = tf.placeholder(tf.string, shape=[None])
@@ -41,22 +97,24 @@ def build_text_line_reader(filenames=None, shuffle=False, batch_size=1):
     next_elements = iterator.get_next()
     return filenames, iterator, next_elements
 
+
 def variable_summaries(var, name=''):
     with tf.variable_scope(name):
         mean = tf.reduce_mean(var)
         tf.summary.scalar('mean', mean)
         with tf.name_scope('stddev'):
-          stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
         tf.summary.scalar('stddev', stddev)
         tf.summary.scalar('max', tf.reduce_max(var))
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
 
+
 def build_depict_graph(inputs, kernel_shape, bias_shape):
     weights = tf.get_variable("weights", kernel_shape,
-        initializer=tf.random_normal_initializer())
+                              initializer=tf.random_normal_initializer())
     biases = tf.get_variable("biases", bias_shape,
-        initializer=tf.constant_initializer(0.0))
+                             initializer=tf.constant_initializer(0.0))
     weighted_sum = tf.add(tf.matmul(inputs, weights), biases)
     # variable_summaries(weighted_sum, 'weighted_sum')
     # TODO: solve the overflow problem of softmax activations
@@ -64,6 +122,7 @@ def build_depict_graph(inputs, kernel_shape, bias_shape):
     # TODO: tf.nn.softmax(weighted_sum) >= 9.99e-31 (func_02, learning_rate=1e-2)
     # return tf.nn.softmax(tf.layers.batch_normalization(weighted_sum))
     return tf.nn.softmax(weighted_sum)
+
 
 def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
     inputs = tf.placeholder_with_default(defalut_inputs, shape=[None, input_dim], name='train_input')
@@ -106,6 +165,7 @@ def build_train_graph(defalut_inputs, input_dim, output_dim, func=''):
     optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cost)
     return inputs, cost, optimizer
 
+
 def build_eval_graph(default_inputs, input_dim, output_dim):
     inputs = tf.placeholder_with_default(default_inputs, shape=[None, input_dim], name='eval_input')
     with tf.variable_scope('depict', reuse=False):
@@ -115,6 +175,7 @@ def build_eval_graph(default_inputs, input_dim, output_dim):
         outputs = tf.argmax(P, axis=1, name='output')
     return inputs, outputs
 
+
 def build_infer_graph(default_inputs, input_dim, output_dim):
     inputs = tf.placeholder_with_default(default_inputs, shape=[None, input_dim], name='infer_inputs')
     with tf.variable_scope('depict', reuse=False):
@@ -123,6 +184,7 @@ def build_infer_graph(default_inputs, input_dim, output_dim):
         P = graph
         outputs = tf.argmax(P, axis=1, name='output')
     return inputs, outputs
+
 
 def build_metrics_graph(scope_name):
     with tf.variable_scope(scope_name):
@@ -147,6 +209,7 @@ def build_metrics_graph(scope_name):
                 err_test=err_test,
                 acc_test=acc_test)
 
+
 def metrics_to_metrics(sess, merger, metrics_1, metrics_2):
     summary = sess.run(merger, feed_dict={
         metrics_1['err_train']: metrics_2['err_train'],
@@ -157,22 +220,26 @@ def metrics_to_metrics(sess, merger, metrics_1, metrics_2):
     })
     return summary
 
+
 def prepare_file_system():
-  # Setup the directory we'll write summaries to for TensorBoard
-  if tf.gfile.Exists(FLAGS.summaries_dir):
-    tf.gfile.DeleteRecursively(FLAGS.summaries_dir)
-  tf.gfile.MakeDirs(FLAGS.summaries_dir)
-  if tf.gfile.Exists(FLAGS.checkpoints_dir):
-    tf.gfile.DeleteRecursively(FLAGS.checkpoints_dir)
-  tf.gfile.MakeDirs(FLAGS.summaries_dir)
-  return
+    # Setup the directory we'll write summaries to for TensorBoard
+    if tf.gfile.Exists(FLAGS.summaries_dir):
+        tf.gfile.DeleteRecursively(FLAGS.summaries_dir)
+    tf.gfile.MakeDirs(FLAGS.summaries_dir)
+    if tf.gfile.Exists(FLAGS.checkpoints_dir):
+        tf.gfile.DeleteRecursively(FLAGS.checkpoints_dir)
+    tf.gfile.MakeDirs(FLAGS.summaries_dir)
+    return
+
 
 # TODO: OOP
 class Model(object):
     def __init__(self):
         pass
+
     def build(self):
         pass
+
 
 def main():
     tf.logging.set_verbosity(tf.logging.INFO)
@@ -229,7 +296,8 @@ def main():
     # train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [FLAGS.path_to_xtrain]})
     # train_sess.run(train_iterator.initializer)
     import utils
-    train_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtrain], shuffle=True, batch_size=FLAGS.train_batch_size)
+    # train_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtrain], shuffle=True, batch_size=FLAGS.train_batch_size)
+    train_generator = utils.build_data_generator(xtrain, shuffle=True, batch_size=FLAGS.train_batch_size)
     for i in itertools.count():
         if i > FLAGS.how_many_training_steps:
             break
@@ -242,11 +310,13 @@ def main():
         # except tf.errors.OutOfRangeError:
         except Exception:
             # train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [FLAGS.path_to_xtrain]})
-            train_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtrain], shuffle=True, batch_size=FLAGS.train_batch_size)
+            # train_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtrain], shuffle=True, batch_size=FLAGS.train_batch_size)
+            train_generator = utils.build_data_generator(xtrain, shuffle=True, batch_size=FLAGS.train_batch_size)
             # xs_train = train_generator.next()
             xs_train = next(train_generator)
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
-        _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger], feed_dict={train_inputs: xs_train})
+        _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger],
+                                                         feed_dict={train_inputs: xs_train})
 
         # train_writer.add_summary(train_summary, i)
         # print('epoch: %6d, training cost: %.8f'%(i, training_cost))
@@ -280,12 +350,14 @@ def main():
         # if i % FLAGS.infer_step_interval == 0:
         if i % pow(10, len(str(i)) - 1) == 0:
             checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
-            train_saver.save(train_sess, FLAGS.saved_model_dir + '/checkpoints_' + str(FLAGS.depict_output_dim), global_step=i)
+            train_saver.save(train_sess, FLAGS.saved_model_dir + '/checkpoints_' + str(FLAGS.depict_output_dim),
+                             global_step=i)
             infer_saver.restore(infer_sess, checkpoint_path)
 
             infers_train = []
             # infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtrain]})
-            infer_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtrain], shuffle=False, batch_size=FLAGS.infer_batch_size)
+            # infer_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtrain], shuffle=False, batch_size=FLAGS.infer_batch_size)
+            infer_generator = utils.build_data_generator(xtrain, shuffle=False, batch_size=FLAGS.infer_batch_size)
             while FLAGS.data_to_infer:
                 try:
                     # xs_infer = infer_sess.run(infer_elements)
@@ -301,7 +373,8 @@ def main():
 
             infers_test = []
             # infer_sess.run(infer_iterator.initializer, feed_dict={infer_filenames: [FLAGS.path_to_xtest]})
-            infer_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtest], shuffle=False, batch_size=FLAGS.infer_batch_size)
+            # infer_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtest], shuffle=False, batch_size=FLAGS.infer_batch_size)
+            infer_generator = utils.build_data_generator(xtest, shuffle=False, batch_size=FLAGS.infer_batch_size)
             while FLAGS.data_to_infer:
                 try:
                     # xs_infer = infer_sess.run(infer_elements)
@@ -322,7 +395,10 @@ def main():
             results[i] = metrics
 
             # TODO:
-            with open('../../results/resultsx.txt', 'a') as f:
+            if not os.path.exists(FLAGS.saved_results_dir): os.makedirs(FLAGS.saved_results_dir)
+            outfile = os.path.join(FLAGS.saved_results_dir,
+                                   '%s_r%d_depict_results.txt' % (FLAGS.database_name, FLAGS.split_round))
+            with open(outfile, 'a') as f:
                 line = list()
                 line.extend([FLAGS.rbfnn_num_center, FLAGS.depict_output_dim, i])
                 line.extend(metrics['err_train'].tolist())
@@ -339,59 +415,14 @@ def main():
     infer_sess.close()
     return results
 
+
 if __name__ == "__main__":
-    import time
-
-    class CONFIGS(object):
-        path_to_ctrain = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_ctrain_r9.txt"
-        path_to_xtrain = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_xtrain_r9.txt"
-        path_to_ytrain = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_ytrain_r9.txt"
-        path_to_ctest = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_ctest_r9.txt"
-        path_to_xtest = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_xtest_r9.txt"
-        path_to_ytest = r"D:\Users\kingdom\Datasets\UCF\data\pwd\ucf_ytest_r9.txt"
-        summaries_dir = r'../../temp/logsx'
-        checkpoints_dir = r'../../temp/modelsx'
-        saved_model_dir = '../../modelsx'
-        how_many_training_steps = 1000
-        learning_rate = 0.01
-        eval_step_interval = 10
-        infer_step_interval = 100
-        train_batch_size = 10000
-        eval_batch_size = 10000
-        infer_batch_size = 10000
-        data_to_eval = True
-        data_to_infer = True
-        loss_function = 'func_04'
-
-        def __init__(self, depict_input_dim=162, depict_output_dim=1024,
-                     rbfnn_input_dim=4096, rbfnn_num_center=120, rbfnn_output_dim=10):
-            self.depict_input_dim = depict_input_dim
-            self.depict_output_dim = depict_output_dim
-            self.rbfnn_input_dim = self.depict_output_dim
-            self.rbfnn_num_center = rbfnn_num_center
-            self.rbfnn_output_dim = rbfnn_output_dim
-
     results = dict()
-    m = 120
+    FLAGS.rbfnn_num_center = 120
     for i in range(7, 16 + 1):
         k = 1 << i
-        FLAGS = CONFIGS(depict_output_dim=k, rbfnn_num_center=m)
-        print(FLAGS.depict_output_dim)
+        FLAGS.depict_output_dim = k
+        FLAGS.rbfnn_input_dim = k
+        pprint.pprint(FLAGS)
         metrics = main()
         results[k] = metrics
-        # print(results)
-        time.sleep(1)
-    # print(results)
-    #
-    # with open('../../results/result.txt', 'w') as f:
-    #     for k, v in results.items():
-    #         for e, metrics in v.items():
-    #             line = list()
-    #             line.extend([m, k, e])
-    #             line.extend(metrics['err_train'].tolist())
-    #             line.extend([metrics['acc_train']])
-    #             line.extend(metrics['stsm_train'].tolist())
-    #             line.extend(metrics['err_test'].tolist())
-    #             line.extend([metrics['acc_test']])
-    #             line = ' '.join(line)
-    #             f.write(line)

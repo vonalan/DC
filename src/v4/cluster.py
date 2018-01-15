@@ -15,7 +15,6 @@ from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
 FLAGS = None
 
-
 def build_word_vector(lineDataSet, lineCount, bins=4096):
     Hist = np.zeros((0, bins))
     begin = 0
@@ -27,20 +26,18 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
     return Hist
 
 
-def build_kmeans_model_with_fixed_input(FLAGS):
+def build_kmeans_model_with_fixed_input(FLAGS, X):
     from sklearn.externals import joblib
     from sklearn.cluster import KMeans
 
-    xrand = np.loadtxt(FLAGS.path_to_xrand)
-    print(xrand.shape)
-
-    num_samples = xrand.shape[0]
+    num_samples = X.shape[0]
     assert num_samples == 100000
 
     if not os.path.exists(FLAGS.save_model_dir): os.makedirs(FLAGS.save_model_dir)
     mfile = os.path.join(FLAGS.save_model_dir, r"%s_r%d_kmeans_k%d_m%d.m" % (FLAGS.database_name, FLAGS.split_round, FLAGS.depict_output_dim, num_samples))
     if not os.path.exists(mfile):
-        kms = KMeans(n_clusters=FLAGS.depict_output_dim).fit(xrand)
+        print(X.shape)
+        kms = KMeans(n_clusters=FLAGS.depict_output_dim).fit(X)
         joblib.dump(kms, mfile, compress=3)
         print('%s is saved! ' % (mfile))
     else:
@@ -49,24 +46,26 @@ def build_kmeans_model_with_fixed_input(FLAGS):
     return kms
 
 
-def build_kmeans_model_with_random_input(root, name, X=None, outdim=4096, factor=4):
+def build_kmeans_model_with_random_input(FLAGS, X, factor=-1):
     from sklearn.externals import joblib
     from sklearn.cluster import KMeans
 
-    dstdir = os.path.join(root, name)
-    if not os.path.exists(dstdir): os.makedirs(dstdir)
-    # num_samples = 100000 if factor <= 0 else outdim * factor
-    num_samples = 100000
-    mfile = os.path.join(dstdir, r"kth_kmeans_r9_k%d_m%d.m" % (outdim, num_samples))
+    num_samples = 100000 if factor <= 0 else FLAGS.depict_output_dim * factor
+
+    if not os.path.exists(FLAGS.saved_model_dir): os.makedirs(FLAGS.saved_model_dir)
+    mfile = os.path.join(FLAGS.saved_model_dir, r"%s_r%d_kmeans_k%d_m%d.m" % (FLAGS.database_name, FLAGS.split_round, FLAGS.depict_output_dim, num_samples))
+
     if not os.path.exists(mfile):
         indices = np.arange(X.shape[0])
         np.random.shuffle(indices)
-        xs = X[indices[:num_samples], :]
-        print(xs.shape)
-        kms = KMeans(n_clusters=outdim).fit(xs)
+        X = X[indices[:num_samples], :]
+        print(X.shape)
+        kms = KMeans(n_clusters=FLAGS.depict_output_dim).fit(X)
         joblib.dump(kms, mfile, compress=3)
+        print('%s is saved! ' % (mfile))
     else:
         kms = joblib.load(mfile)
+        print('%s is loaded! ' % (mfile))
     return kms
 
 def main():

@@ -12,7 +12,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import minmax_scale as sklscale
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
-split_round = 9
+split_round = 10
 database_name = 'kth'
 database_root = r'D:\Users\kingdom\Datasets\KTH'
 num_classes = 6
@@ -20,19 +20,19 @@ num_classes = 6
 parser = argparse.ArgumentParser()
 parser.add_argument('--database_name', type=str, default=database_name)
 parser.add_argument('--split_round', type=int, default=split_round)
-parser.add_argument('--path_to_ctrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_ctrain_r9.txt'%(database_name)))
-parser.add_argument('--path_to_xtrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_xtrain_r9.txt'%(database_name)))
-parser.add_argument('--path_to_ytrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_ytrain_r9.txt'%(database_name)))
-parser.add_argument('--path_to_ctest', type=str, default=os.path.join(database_root, 'data\pwd\%s_ctest_r9.txt'%(database_name)))
-parser.add_argument('--path_to_xtest', type=str, default=os.path.join(database_root, 'data\pwd\%s_xtest_r9.txt'%(database_name)))
-parser.add_argument('--path_to_ytest', type=str, default=os.path.join(database_root, 'data\pwd\%s_ytest_r9.txt'%(database_name)))
-parser.add_argument('--path_to_xrand', type=str, default=os.path.join(database_root, 'data\pwd\%s_xrand_r9.txt'%(database_name)))
+parser.add_argument('--path_to_ctrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_ctrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xtrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_xtrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ytrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_ytrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ctest', type=str, default=os.path.join(database_root, 'data\pwd\%s_ctest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xtest', type=str, default=os.path.join(database_root, 'data\pwd\%s_xtest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ytest', type=str, default=os.path.join(database_root, 'data\pwd\%s_ytest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xrand', type=str, default=os.path.join(database_root, 'data\pwd\%s_xrand_r%d.txt'%(database_name, split_round)))
 parser.add_argument('--depict_output_dim', type=int, default=-1)
 parser.add_argument('--rbfnn_input_dim', type=int, default=-1)
 parser.add_argument('--rbfnn_num_center', type=int, default=-1)
 parser.add_argument('--rbfnn_output_dim', type=int, default=num_classes)
-parser.add_argument('--save_model_dir', type=str, default='../../models/')
-parser.add_argument('--save_results_dir', type=str, default='../../results/')
+parser.add_argument('--saved_model_dir', type=str, default='../../models/')
+parser.add_argument('--saved_results_dir', type=str, default='../../results/')
 FLAGS, _ = parser.parse_known_args()
 # pprint.pprint(FLAGS)
 
@@ -62,8 +62,8 @@ for i in range(7, 16 + 1):
     pprint.pprint(metrics)
 
     # TODO:
-    if not os.path.exists(FLAGS.save_results_dir): os.makedirs(FLAGS.save_results_dir)
-    outfile = os.path.join(FLAGS.save_results_dir, '%s_r%d_kmeans_results.txt'%(FLAGS.database_name, FLAGS.split_round))
+    if not os.path.exists(FLAGS.saved_results_dir): os.makedirs(FLAGS.saved_results_dir)
+    outfile = os.path.join(FLAGS.saved_results_dir, '%s_r%d_kmeans_results.txt'%(FLAGS.database_name, FLAGS.split_round))
     with open(outfile, 'a') as f:
         line = list()
         line.extend([FLAGS.rbfnn_num_center, FLAGS.depict_output_dim, 0])

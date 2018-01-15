@@ -22,7 +22,20 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
         begin = end
     return Hist
 
-def build_data_generator(filenames=None, shuffle=False, batch_size=1):
+def build_data_generator(dataset, shuffle=False, batch_size=1):
+    num_samples, num_features = dataset.shape
+    num_batches = int(math.ceil(num_samples/batch_size))
+    indices = np.arange(num_samples)
+    if shuffle:
+        np.random.shuffle(indices)
+    for batch in range(num_batches):
+        start = batch * batch_size
+        end = min((batch + 1) * batch_size, num_samples)
+        mini_batch = dataset[start:end,:]
+        yield mini_batch
+        # return mini_batch
+
+def build_data_generator_with_seperated_files(filenames=None, shuffle=False, batch_size=1):
     # dataset = np.zeros((0, 128))
     dataset = None
     for filename in filenames:
@@ -43,6 +56,23 @@ def build_data_generator(filenames=None, shuffle=False, batch_size=1):
         mini_batch = dataset[start:end,:]
         yield mini_batch
         # return mini_batch
+
+def write_results(FLAGS, metrics):
+    if not os.path.exists(FLAGS.saved_results_dir): os.makedirs(FLAGS.saved_results_dir)
+    outfile = os.path.join(FLAGS.saved_results_dir,
+                           '%s_r%d_depict_results.txt' % (FLAGS.database_name, FLAGS.split_round))
+    with open(outfile, 'a') as f:
+        line = list()
+        line.extend([FLAGS.rbfnn_num_center, FLAGS.depict_output_dim, i])
+        line.extend(metrics['err_train'].tolist())
+        line.extend([metrics['acc_train']])
+        line.extend(metrics['stsm_train'].tolist())
+        line.extend(metrics['err_test'].tolist())
+        line.extend([metrics['acc_test']])
+        line = [str(item) for item in line]
+        line = ' '.join(line)
+        f.write(line)
+        f.write('\n')
 
 def writeLog(root, name, string):
     if not os.path.exists(root): os.mkdir(root)

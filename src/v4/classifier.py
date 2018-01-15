@@ -72,7 +72,7 @@ def run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS=None):
     err_test = calc_err(ts_test, ys_test)
     acc_test = calc_acc(ts_test, ys_test)
 
-    stsm_train = 0.25
+    stsm_train = np.array([-0.25] * FLAGS.depict_output_dim)
 
     return dict(err_train=err_train,
                 acc_train=acc_train,
@@ -95,7 +95,8 @@ def run_rbfnn_dev(xs_train, ts_train, xs_test, ts_test, FLAGS=None):
     err_test = calc_err(ts_test, ys_test)
     acc_test = calc_acc(ts_test, ys_test)
 
-    stsm_train = stsm.calc_stsm_vector(network, xs_train, cost_func=calc_err)
+    # stsm_train = stsm.calc_stsm_vector(network, xs_train, cost_func=calc_err)
+    stsm_train = np.array([-0.25] * FLAGS.depict_output_dim)
 
     return dict(err_train=err_train,
                 acc_train=acc_train,
@@ -118,7 +119,8 @@ def run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS):
     err_test = calc_err(ts_test, ys_test)
     acc_test = calc_acc(ts_test, ys_test)
 
-    stsm_train = stsm.calc_stsm_vector(network, xs_train, cost_func=calc_err)
+    # stsm_train = stsm.calc_stsm_vector(network, xs_train, cost_func=calc_err)
+    stsm_train = np.array([-0.25] * FLAGS.depict_output_dim)
 
     return dict(err_train=err_train,
                 acc_train=acc_train,
