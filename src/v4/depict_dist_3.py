@@ -234,7 +234,6 @@ def main():
         if i > FLAGS.how_many_training_steps:
             break
 
-        '''
         try:
             # xs_train = train_sess.run(train_elements)
             # xs_train = train_generator.next()
@@ -251,7 +250,6 @@ def main():
         # train_writer.add_summary(train_summary, i)
         # print('epoch: %6d, training cost: %.8f'%(i, training_cost))
         # time.sleep(1)
-        '''
 
         '''
         # if i % FLAGS.eval_step_interval == 0:
@@ -292,7 +290,7 @@ def main():
                     # xs_infer = infer_sess.run(infer_elements)
                     # xs_infer = infer_generator.next()
                     xs_infer = next(infer_generator)
-                    print(xs_infer.shape)
+                    # print(xs_infer.shape)
                 # except tf.errors.OutOfRangeError:
                 except Exception:
                     break
