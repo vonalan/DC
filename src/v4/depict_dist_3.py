@@ -65,10 +65,10 @@ parser.add_argument('--checkpoints_dir', type=str, default='../../temp/models')
 parser.add_argument('--saved_model_dir', type=str, default='../../models/')
 parser.add_argument('--saved_results_dir', type=str, default='../../results/')
 
-parser.add_argument('--how_many_training_steps', type=int, default=40000)
+parser.add_argument('--how_many_training_steps', type=int, default=1080)
 parser.add_argument('--learning_rate', type=float, default=0.01)
 parser.add_argument('--eval_step_interval', type=int, default=10)
-parser.add_argument('--infer_step_interval', type=int, default=100)
+parser.add_argument('--infer_step_interval', type=int, default=1)
 parser.add_argument('--train_batch_size', type=int, default=10000)
 parser.add_argument('--eval_batch_size', type=int, default=10000)
 parser.add_argument('--infer_batch_size', type=int, default=100000)
@@ -315,8 +315,9 @@ def main():
             # xs_train = train_generator.next()
             xs_train = next(train_generator)
         # train_summary, _ = train_sess.run([optimizer, train_merger]) #
-        _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger],
-                                                         feed_dict={train_inputs: xs_train})
+        # _, training_cost, train_summary = train_sess.run([optimizer, train_cost, train_merger],
+        #                                                  feed_dict={train_inputs: xs_train})
+        _ = train_sess.run(optimizer, feed_dict={train_inputs: xs_train})
 
         # train_writer.add_summary(train_summary, i)
         # print('epoch: %6d, training cost: %.8f'%(i, training_cost))
@@ -347,11 +348,11 @@ def main():
                 break
         '''
 
-        # if i % FLAGS.infer_step_interval == 0:
-        if i % pow(10, len(str(i)) - 1) == 0:
+        if i % FLAGS.infer_step_interval == 0:
+        # if i % pow(10, len(str(i)) - 1) == 0:
             checkpoint_path = train_saver.save(train_sess, FLAGS.checkpoints_dir + '/checkpoints', global_step=i)
-            train_saver.save(train_sess, FLAGS.saved_model_dir + '/checkpoints_' + str(FLAGS.depict_output_dim),
-                             global_step=i)
+            # train_saver.save(train_sess, FLAGS.saved_model_dir + '/checkpoints_' + str(FLAGS.depict_output_dim),
+            #                  global_step=i)
             infer_saver.restore(infer_sess, checkpoint_path)
 
             infers_train = []
