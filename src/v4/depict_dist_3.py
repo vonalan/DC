@@ -239,7 +239,8 @@ def main():
             # xs_train = train_generator.next()
             xs_train = next(train_generator)
             # print(xs_train)
-        except tf.errors.OutOfRangeError:
+        # except tf.errors.OutOfRangeError:
+        except Exception:
             # train_sess.run(train_iterator.initializer, feed_dict={train_filenames: [FLAGS.path_to_xtrain]})
             train_generator = utils.build_data_generator(filenames=[FLAGS.path_to_xtrain], shuffle=True, batch_size=FLAGS.train_batch_size)
             # xs_train = train_generator.next()
