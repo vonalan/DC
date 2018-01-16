@@ -334,7 +334,7 @@ def main():
 if __name__ == "__main__":
     results = dict()
     FLAGS.rbfnn_num_center = 120
-    for i in range(7, 16 + 1):
+    for i in range(7, 15 + 1):
         k = 1 << i
         FLAGS.depict_output_dim = k
         FLAGS.rbfnn_input_dim = k

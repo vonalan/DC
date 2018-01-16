@@ -356,7 +356,7 @@ if __name__ == "__main__":
 
     results = dict()
     m = 120
-    for i in range(7, 12 + 1):
+    for i in range(7, 15 + 1):
         k = 1 << i
         FLAGS = CONFIGS(depict_output_dim=k, rbfnn_num_center=m)
         print(FLAGS.depict_output_dim)
