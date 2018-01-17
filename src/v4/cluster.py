@@ -25,6 +25,17 @@ def build_word_vector(lineDataSet, lineCount, bins=4096):
         begin = end
     return Hist
 
+def build_word_vector_with_soft_assignment(lineDataSet, lineCount):
+    Hist = np.zeros((lineCount.shape[0], lineDataSet.shape[1]))
+    begin = 0
+    for i in range(lineCount.shape[0]):
+        end = begin + int(lineCount[i])
+        cur_batch = lineDataSet[begin:end]
+        cur_vector = np.sum(cur_batch, axis=0)
+        Hist[i,:] = cur_vector
+        begin = end
+    return Hist
+
 
 def build_kmeans_model_with_fixed_input(FLAGS, X):
     from sklearn.externals import joblib

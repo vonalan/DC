@@ -30,6 +30,7 @@ from sklearn.svm import SVC
 
 import utils
 import rbfnn
+import cluster
 import stsm_pseudo as stsm
 
 def calc_err(y_true, y_predict):
@@ -72,7 +73,7 @@ def run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS=None):
     err_test = calc_err(ts_test, ys_test)
     acc_test = calc_acc(ts_test, ys_test)
 
-    stsm_train = np.array([-0.25] * FLAGS.depict_output_dim)
+    stsm_train = np.array([-0.25] * FLAGS.rbfnn_output_dim)
 
     return dict(err_train=err_train,
                 acc_train=acc_train,
@@ -96,7 +97,7 @@ def run_rbfnn_dev(xs_train, ts_train, xs_test, ts_test, FLAGS=None):
     acc_test = calc_acc(ts_test, ys_test)
 
     # stsm_train = stsm.calc_stsm_vector(network, xs_train, cost_func=calc_err)
-    stsm_train = np.array([-0.25] * FLAGS.depict_output_dim)
+    stsm_train = np.array([-0.25] * FLAGS.rbfnn_output_dim)
 
     return dict(err_train=err_train,
                 acc_train=acc_train,
@@ -120,13 +121,33 @@ def run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS):
     acc_test = calc_acc(ts_test, ys_test)
 
     # stsm_train = stsm.calc_stsm_vector(network, xs_train, cost_func=calc_err)
-    stsm_train = np.array([-0.25] * FLAGS.depict_output_dim)
+    stsm_train = np.array([-0.25] * FLAGS.rbfnn_output_dim)
 
     return dict(err_train=err_train,
                 acc_train=acc_train,
                 err_test=err_test,
                 acc_test=acc_test,
                 stsm_train=stsm_train)
+
+
+def run_with_soft_assignment(outputs_train, outputs_eval, FLAGS):
+    c_train = np.loadtxt(FLAGS.path_to_ctrain)
+    c_test = np.loadtxt(FLAGS.path_to_ctest)
+
+    hist_train = cluster.build_word_vector_with_soft_assignment(outputs_train, c_train)
+    hist_test = cluster.build_word_vector_with_soft_assignment(outputs_eval, c_test)
+    # xs_train = sklscale(hist_train)
+    # xs_test = sklscale(hist_test)
+    xs_train = hist_train
+    xs_test = hist_test
+
+    # step_03 load
+    ts_train = np.loadtxt(FLAGS.path_to_ytrain)
+    ts_test = np.loadtxt(FLAGS.path_to_ytest)
+
+    # TODO: rbfnn, svm, softmax
+    return run_rbfnn(xs_train, ts_train, xs_test, ts_test, FLAGS)
+    # return run_svm(xs_train, ts_train, xs_test, ts_test, FLAGS)
 
 def run(outputs_train, outputs_eval, FLAGS):
     c_train = np.loadtxt(FLAGS.path_to_ctrain)

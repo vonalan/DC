@@ -18,6 +18,7 @@ import os
 import sys 
 import math
 import time
+import argparse
 import datetime as dt
 import itertools
 import pprint
@@ -34,6 +35,43 @@ from tensorflow.python.framework import graph_util
 from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
 # import classifier
+
+
+
+split_round = 9
+database_name = 'kth'
+database_root = r'E:\Users\kingdom\KTH'
+num_classes = 6
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--database_name', type=str, default=database_name)
+parser.add_argument('--split_round', type=int, default=split_round)
+parser.add_argument('--path_to_ctrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_ctrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xtrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_xtrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ytrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_ytrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ctest', type=str, default=os.path.join(database_root, 'data\pwd\%s_ctest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xtest', type=str, default=os.path.join(database_root, 'data\pwd\%s_xtest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ytest', type=str, default=os.path.join(database_root, 'data\pwd\%s_ytest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xrand', type=str, default=os.path.join(database_root, 'data\pwd\%s_xrand_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--depict_output_dim', type=int, default=128)
+parser.add_argument('--rbfnn_input_dim', type=int, default=128)
+parser.add_argument('--rbfnn_num_center', type=int, default=120)
+parser.add_argument('--rbfnn_output_dim', type=int, default=num_classes)
+parser.add_argument('--saved_model_dir', type=str, default='../../models/')
+parser.add_argument('--saved_results_dir', type=str, default='../../results/')
+FLAGS, _ = parser.parse_known_args()
+# pprint.pprint(FLAGS)
+
+sys.path.append('../v4')
+# from ..v4 import classifier
+import classifier
+
+xtrain = np.loadtxt(FLAGS.path_to_xtrain)
+xtest = np.loadtxt(FLAGS.path_to_xtest)
+xrand = np.loadtxt(FLAGS.path_to_xrand)
+print(xtrain.shape, xtest.shape, xrand.shape)
+
+depict_loss = lambda y_true, y_pred: y_pred
 
 
 def build_basic_model(input_shape, output_shape):
@@ -78,11 +116,16 @@ def main():
     depict_output_shape=(128,)
     base_model, train_model = build(depict_input_shape)
 
-    depict_loss = lambda y_true, y_pred: y_pred
-    train_model.compile(optimizer=Adam(), loss=depict_loss)
+    for i in range(3,10):
+        train_model.compile(optimizer=Adam(lr=pow(10, -1 * i)), loss=depict_loss)
+        train_model.fit(xtrain, xtrain, epochs=10 * (i-2), validation_split=0.2)
+        ys_train = base_model.predict(xtrain)
+        ys_test = base_model.predict(xtest)
 
-    xs = np.loadtxt(r"E:\Users\kingdom\KTH\data\txt\kth_xtrain_r9.txt")
-    train_model.fit(xs, xs, epochs=10, validation_split=0.1)
+        metrics = classifier.run_with_soft_assignment(ys_train, ys_test, FLAGS)
+        print('i: %d'%(i))
+        pprint.pprint(metrics)
+
 
 if __name__ == '__main__':
     main()
