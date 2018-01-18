@@ -47,7 +47,7 @@ xrand = np.loadtxt(FLAGS.path_to_xrand)
 print(xtrain.shape, xtest.shape, xrand.shape)
 
 FLAGS.rbfnn_num_center = 120
-for i in range(7, 16 + 1):
+for i in range(7, 15 + 1):
     num_cluster = 1 << i
     print(num_cluster)
     FLAGS.depict_output_dim = num_cluster

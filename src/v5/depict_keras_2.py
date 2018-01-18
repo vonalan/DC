@@ -60,7 +60,7 @@ parser.add_argument('--rbfnn_num_center', type=int, default=-1)
 parser.add_argument('--rbfnn_output_dim', type=int, default=num_classes)
 parser.add_argument('--saved_model_dir', type=str, default='../../models/')
 parser.add_argument('--saved_results_dir', type=str, default='../../results/')
-parser.add_argument('--device', type=str, default='cpu')
+parser.add_argument('--device', type=str, default='gpu')
 
 FLAGS, _ = parser.parse_known_args()
 # pprint.pprint(FLAGS)
@@ -68,29 +68,29 @@ FLAGS, _ = parser.parse_known_args()
 
 sys.path.extend(['../v4'])
 # from ..v4 import classifier
-import classifier, utils
+import classifier, utils, cluster
 
-alpha = 1e-5
+# alpha = 1e-0
 depict_loss = lambda y_true, y_pred: y_pred
 
 
-def build_basic_model(input_shape, output_shape):
+def build_basic_model(FLAGS):
     from keras.activations import softmax
-    inputs = Input(shape=input_shape)
+    inputs = Input(shape=(FLAGS.depict_input_dim,))
     x = inputs
     x = Dense(FLAGS.depict_output_dim, activation=softmax, use_bias=True)(x)
     outputs = x
     model = Model(inputs, outputs)
     return model
 
-def depict_loss_layer(P):
+def depict_loss_layer(args, FLAGS, alpha, prior):
+    P = args
     N = keras.reshape(keras.sum(P, axis=0), (-1, FLAGS.depict_output_dim))
     N = P / keras.pow(N, 0.5)
     D = keras.reshape(keras.sum(N, 1), (-1, 1))
     Q = N / D
 
     # TODO: make U trainable!!!
-    prior = [1 / float(FLAGS.depict_output_dim)] * FLAGS.depict_output_dim
     U = keras.variable(prior)
     F = keras.reshape(keras.mean(Q, axis=0), (-1, FLAGS.depict_output_dim))
 
@@ -102,18 +102,30 @@ def depict_loss_layer(P):
 
     return L
 
-def build(input_shape):
-    base_model = build_basic_model(input_shape, None)
+def build(FLAGS, alpha, prior):
+    base_model = build_basic_model(FLAGS)
 
-    inputs = Input(shape=input_shape)
+    inputs = Input(shape=(FLAGS.depict_input_dim,))
     x = inputs
     P = base_model(x)
-    outputs = Lambda(depict_loss_layer)(P)
+    outputs = Lambda(depict_loss_layer, arguments={'FLAGS': FLAGS, 'alpha': alpha, 'prior': prior})(P)
     model = Model(inputs, outputs)
 
     return base_model, model
 
+def build_model_test(FLAGS):
+    FLAGS.depict_input_dim = 162
+    FLAGS.depict_output_dim = 128
+    prior = [1 / float(FLAGS.depict_output_dim)] * FLAGS.depict_output_dim
+    alpha = 1.0
+    base_model, model = build(FLAGS, alpha, prior)
+    # for i, layer in enumerate(model.layers):
+    #     print(i, layer.name)
+    base_model.summary()
+    model.summary()
+
 def main():
+    alpha = 1.0
     print(alpha)
 
     xtrain = np.loadtxt(FLAGS.path_to_xtrain)
@@ -129,10 +141,16 @@ def main():
         FLAGS.rbfnn_input_dim = k
         pprint.pprint(FLAGS)
 
-        depict_input_shape = (162,)
-        base_model, train_model = build(depict_input_shape)
+        # kms = cluster.build_kmeans_model_with_fixed_input(FLAGS, xrand)
+        kms = cluster.build_kmeans_model_with_random_input(FLAGS, xtrain)
+        qtrain = kms.predict(xtrain)
+        qtrain = np.histogram(qtrain, FLAGS.depict_output_dim, range=(0, FLAGS.depict_output_dim))[0]
+        qtrain = qtrain / qtrain.sum()
+        print(qtrain)
 
-        for i in range(20):
+        base_model, train_model = build(FLAGS, alpha, qtrain)
+
+        for i in range(10):
             train_model.compile(optimizer=Adam(lr=1e-4), loss=depict_loss)
             train_model.fit(xtrain, xtrain, epochs=1, validation_split=0.2)
             ys_train = base_model.predict(xtrain)
@@ -143,7 +161,7 @@ def main():
 
             print('num_cluster: %d, iteration: %d, alpha: %f' % (k, i, alpha))
             pprint.pprint(metrics)
-            utils.write_results(FLAGS, metrics, i, postfix='alpha_%.12f'%(alpha))
+            # utils.write_results(FLAGS, metrics, i, postfix='alpha_%.12f'%(alpha))
 
 if __name__ == '__main__':
     if FLAGS.device == 'cpu':
@@ -152,3 +170,4 @@ if __name__ == '__main__':
     else:
         main()
 
+    # build_model_test(FLAGS)

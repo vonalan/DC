@@ -136,10 +136,10 @@ def run_with_soft_assignment(outputs_train, outputs_eval, FLAGS):
 
     hist_train = cluster.build_word_vector_with_soft_assignment(outputs_train, c_train)
     hist_test = cluster.build_word_vector_with_soft_assignment(outputs_eval, c_test)
-    # xs_train = sklscale(hist_train)
-    # xs_test = sklscale(hist_test)
-    xs_train = hist_train
-    xs_test = hist_test
+    xs_train = sklscale(hist_train, feature_range=(0,1), axis=1)
+    xs_test = sklscale(hist_test, feature_range=(0,1), axis=1)
+    # xs_train = hist_train
+    # xs_test = hist_test
 
     # step_03 load
     ts_train = np.loadtxt(FLAGS.path_to_ytrain)

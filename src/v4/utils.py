@@ -57,10 +57,10 @@ def build_data_generator_with_seperated_files(filenames=None, shuffle=False, bat
         yield mini_batch
         # return mini_batch
 
-def write_results(FLAGS, metrics):
+def write_results(FLAGS, metrics, i, postfix=''):
     if not os.path.exists(FLAGS.saved_results_dir): os.makedirs(FLAGS.saved_results_dir)
     outfile = os.path.join(FLAGS.saved_results_dir,
-                           '%s_r%d_depict_results.txt' % (FLAGS.database_name, FLAGS.split_round))
+                           '%s_r%d_depict_results_%s.txt' % (FLAGS.database_name, FLAGS.split_round, postfix))
     with open(outfile, 'a') as f:
         line = list()
         line.extend([FLAGS.rbfnn_num_center, FLAGS.depict_output_dim, i])
