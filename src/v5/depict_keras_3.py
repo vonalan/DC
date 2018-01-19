@@ -142,8 +142,6 @@ def main():
         FLAGS.rbfnn_input_dim = k
         pprint.pprint(FLAGS)
 
-        # kms = cluster.build_kmeans_model_with_fixed_input(FLAGS, xrand)
-        # kms = cluster.build_kmeans_model_with_random_input(FLAGS, xtrain)
         try:
             kms = cluster.load_pretrained_kmeans_model(FLAGS)
             qtrain = kms.predict(xtrain)
@@ -155,18 +153,24 @@ def main():
             qtrain = [1 / float(FLAGS.depict_output_dim)] * FLAGS.depict_output_dim
         base_model, train_model = build(FLAGS, alpha, qtrain)
 
-        for i in range(15):
-            train_model.compile(optimizer=Adam(lr=1e-4), loss=depict_loss)
-            train_model.fit(xtrain, xtrain, epochs=1, validation_split=0.999)
-            ys_train = base_model.predict(xtrain)
-            ys_test = base_model.predict(xtest)
-            metrics = classifier.run_with_soft_assignment(ys_train, ys_test, FLAGS)
+        train_model.compile(optimizer=Adam(lr=1e-4), loss=depict_loss)
+        train_generator = utils.build_data_generator(xtrain, shuffle=True, batch_size=128)
+	
+        step = 0
+	for epoch in itertools.count(): 	
+            for batch, batch_xs in enumerate(train_generator):
+   		step += 1
+                train_model.fit(batch_xs, batch_xs)
 
-            # metrics = classifier.run(ys_train, ys_test, FLAGS)
+                ys_train = base_model.predict(xtrain)
+                ys_test = base_model.predict(xtest)
+                metrics = classifier.run_with_soft_assignment(ys_train, ys_test, FLAGS)
+   
+                # metrics = classifier.run(ys_train, ys_test, FLAGS)
 
-            print('num_cluster: %d, iteration: %d, alpha: %f' % (k, i, alpha))
-            pprint.pprint(metrics)
-            # utils.write_results(FLAGS, metrics, i, postfix='alpha_%.12f'%(alpha))
+                print('alpha: %f, num_cluster: %d, epoch: %d, batch: %d, step: %d' % (alpha, k, epoch, batch, step))
+                pprint.pprint(metrics)
+                # utils.write_results(FLAGS, metrics, i, postfix='alpha_%.12f'%(alpha))
 
 if __name__ == '__main__':
     if FLAGS.device == 'cpu':
