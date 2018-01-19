@@ -14,8 +14,8 @@
 #     continuous bag-of-words model (CBOW)
 #     Skip-Gram Model
 
-import os 
-import sys 
+import os
+import sys
 import math
 import time
 import argparse
@@ -23,7 +23,7 @@ import datetime as dt
 import itertools
 import pprint
 
-import numpy as np 
+import numpy as np
 import tensorflow as tf
 from keras import backend as keras
 from keras.layers import Input, Dense, Lambda
@@ -47,13 +47,20 @@ num_classes = 10
 parser = argparse.ArgumentParser()
 parser.add_argument('--database_name', type=str, default=database_name)
 parser.add_argument('--split_round', type=int, default=split_round)
-parser.add_argument('--path_to_ctrain', type=str, default=os.path.join(database_root, r'data/pwd/%s_ctrain_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_xtrain', type=str, default=os.path.join(database_root, r'data/pwd/%s_xtrain_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_ytrain', type=str, default=os.path.join(database_root, r'data/pwd/%s_ytrain_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_ctest', type=str, default=os.path.join(database_root, r'data/pwd/%s_ctest_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_xtest', type=str, default=os.path.join(database_root, r'data/pwd/%s_xtest_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_ytest', type=str, default=os.path.join(database_root, r'data/pwd/%s_ytest_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_xrand', type=str, default=os.path.join(database_root, r'data/pwd/%s_xrand_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ctrain', type=str,
+                    default=os.path.join(database_root, r'data/pwd/%s_ctrain_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_xtrain', type=str,
+                    default=os.path.join(database_root, r'data/pwd/%s_xtrain_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_ytrain', type=str,
+                    default=os.path.join(database_root, r'data/pwd/%s_ytrain_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_ctest', type=str,
+                    default=os.path.join(database_root, r'data/pwd/%s_ctest_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_xtest', type=str,
+                    default=os.path.join(database_root, r'data/pwd/%s_xtest_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_ytest', type=str,
+                    default=os.path.join(database_root, r'data/pwd/%s_ytest_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--path_to_xrand', type=str,
+                    default=os.path.join(database_root, r'data/pwd/%s_xrand_r%d.txt' % (database_name, split_round)))
 parser.add_argument('--depict_input_dim', type=int, default=-1)
 parser.add_argument('--depict_output_dim', type=int, default=-1)
 parser.add_argument('--rbfnn_input_dim', type=int, default=-1)
@@ -84,6 +91,7 @@ def build_basic_model(FLAGS):
     model = Model(inputs, outputs)
     return model
 
+
 def depict_loss_layer(args, FLAGS, alpha, prior):
     P = args
     N = keras.reshape(keras.sum(P, axis=0), (-1, FLAGS.depict_output_dim))
@@ -103,6 +111,7 @@ def depict_loss_layer(args, FLAGS, alpha, prior):
 
     return L
 
+
 def build(FLAGS, alpha, prior):
     base_model = build_basic_model(FLAGS)
 
@@ -114,6 +123,7 @@ def build(FLAGS, alpha, prior):
 
     return base_model, model
 
+
 def build_model_test(FLAGS):
     FLAGS.depict_input_dim = 162
     FLAGS.depict_output_dim = 128
@@ -124,6 +134,7 @@ def build_model_test(FLAGS):
     #     print(i, layer.name)
     base_model.summary()
     model.summary()
+
 
 def main():
     alpha = 1.0
@@ -155,22 +166,23 @@ def main():
 
         train_model.compile(optimizer=Adam(lr=1e-4), loss=depict_loss)
         train_generator = utils.build_data_generator(xtrain, shuffle=True, batch_size=128)
-	
+
         step = 0
-	for epoch in itertools.count(): 	
+        for epoch in itertools.count():
             for batch, batch_xs in enumerate(train_generator):
-   		step += 1
-                train_model.fit(batch_xs, batch_xs)
+                train_model.fit(batch_xs, batch_xs, verbose=0)
+                if step % 10 == 0:
+                    ys_train = base_model.predict(xtrain)
+                    ys_test = base_model.predict(xtest)
+                    metrics = classifier.run_with_soft_assignment(ys_train, ys_test, FLAGS)
 
-                ys_train = base_model.predict(xtrain)
-                ys_test = base_model.predict(xtest)
-                metrics = classifier.run_with_soft_assignment(ys_train, ys_test, FLAGS)
-   
-                # metrics = classifier.run(ys_train, ys_test, FLAGS)
+                    # metrics = classifier.run(ys_train, ys_test, FLAGS)
 
-                print('alpha: %f, num_cluster: %d, epoch: %d, batch: %d, step: %d' % (alpha, k, epoch, batch, step))
-                pprint.pprint(metrics)
-                # utils.write_results(FLAGS, metrics, i, postfix='alpha_%.12f'%(alpha))
+                    print('alpha: %f, num_cluster: %d, epoch: %d, batch: %d, step: %d' % (alpha, k, epoch, batch, step))
+                    pprint.pprint(metrics)
+                    # utils.write_results(FLAGS, metrics, i, postfix='alpha_%.12f'%(alpha))
+                step += 1
+
 
 if __name__ == '__main__':
     if FLAGS.device == 'cpu':
@@ -179,4 +191,4 @@ if __name__ == '__main__':
     else:
         main()
 
-    # build_model_test(FLAGS)
+        # build_model_test(FLAGS)
