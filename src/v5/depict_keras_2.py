@@ -39,20 +39,21 @@ from sklearn.metrics import normalized_mutual_info_score as sklnmi
 
 
 split_round = 9
-database_name = 'kth'
-database_root = r'E:\Users\kingdom\KTH'
-num_classes = 6
+database_name = 'ucf'
+# database_root = r'E:\Users\kingdom\KTH'
+database_root = r'/home/kingdom/Datasets/UCF'
+num_classes = 10
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--database_name', type=str, default=database_name)
 parser.add_argument('--split_round', type=int, default=split_round)
-parser.add_argument('--path_to_ctrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_ctrain_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_xtrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_xtrain_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_ytrain', type=str, default=os.path.join(database_root, 'data\pwd\%s_ytrain_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_ctest', type=str, default=os.path.join(database_root, 'data\pwd\%s_ctest_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_xtest', type=str, default=os.path.join(database_root, 'data\pwd\%s_xtest_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_ytest', type=str, default=os.path.join(database_root, 'data\pwd\%s_ytest_r%d.txt'%(database_name, split_round)))
-parser.add_argument('--path_to_xrand', type=str, default=os.path.join(database_root, 'data\pwd\%s_xrand_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ctrain', type=str, default=os.path.join(database_root, r'data/pwd/%s_ctrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xtrain', type=str, default=os.path.join(database_root, r'data/pwd/%s_xtrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ytrain', type=str, default=os.path.join(database_root, r'data/pwd/%s_ytrain_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ctest', type=str, default=os.path.join(database_root, r'data/pwd/%s_ctest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xtest', type=str, default=os.path.join(database_root, r'data/pwd/%s_xtest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_ytest', type=str, default=os.path.join(database_root, r'data/pwd/%s_ytest_r%d.txt'%(database_name, split_round)))
+parser.add_argument('--path_to_xrand', type=str, default=os.path.join(database_root, r'data/pwd/%s_xrand_r%d.txt'%(database_name, split_round)))
 parser.add_argument('--depict_input_dim', type=int, default=-1)
 parser.add_argument('--depict_output_dim', type=int, default=-1)
 parser.add_argument('--rbfnn_input_dim', type=int, default=-1)
@@ -128,6 +129,7 @@ def main():
     alpha = 1.0
     print(alpha)
 
+    print(FLAGS.path_to_xtrain)
     xtrain = np.loadtxt(FLAGS.path_to_xtrain)
     xtest = np.loadtxt(FLAGS.path_to_xtest)
     xrand = np.loadtxt(FLAGS.path_to_xrand)
@@ -156,7 +158,7 @@ def main():
 
         for i in range(10):
             train_model.compile(optimizer=Adam(lr=1e-4), loss=depict_loss)
-            train_model.fit(xtrain, xtrain, epochs=1, validation_split=0.1)
+            train_model.fit(xtrain, xtrain, epochs=1, validation_split=0.95)
             ys_train = base_model.predict(xtrain)
             ys_test = base_model.predict(xtest)
             metrics = classifier.run_with_soft_assignment(ys_train, ys_test, FLAGS)
