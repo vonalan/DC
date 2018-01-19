@@ -36,6 +36,14 @@ def build_word_vector_with_soft_assignment(lineDataSet, lineCount):
         begin = end
     return Hist
 
+def load_pretrained_kmeans_model(FLAGS):
+    from sklearn.externals import joblib
+    num_samples = 100000
+    mfile = os.path.join(FLAGS.save_model_dir, r"%s_r%d_kmeans_k%d_m%d.m" % (
+    FLAGS.database_name, FLAGS.split_round, FLAGS.depict_output_dim, num_samples))
+    kms = joblib.load(mfile)
+    print('%s is loaded! ' % (mfile))
+    return kms
 
 def build_kmeans_model_with_fixed_input(FLAGS, X):
     from sklearn.externals import joblib

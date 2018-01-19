@@ -135,24 +135,28 @@ def main():
 
     FLAGS.depict_input_dim = 162
     FLAGS.rbfnn_num_center = 120
-    for i in range(7, 16 + 1):
+    for i in range(12, 16 + 1):
         k = 1 << i
         FLAGS.depict_output_dim = k
         FLAGS.rbfnn_input_dim = k
         pprint.pprint(FLAGS)
 
         # kms = cluster.build_kmeans_model_with_fixed_input(FLAGS, xrand)
-        kms = cluster.build_kmeans_model_with_random_input(FLAGS, xtrain)
-        qtrain = kms.predict(xtrain)
-        qtrain = np.histogram(qtrain, FLAGS.depict_output_dim, range=(0, FLAGS.depict_output_dim))[0]
-        qtrain = qtrain / qtrain.sum()
-        print(qtrain)
-
+        # kms = cluster.build_kmeans_model_with_random_input(FLAGS, xtrain)
+        try:
+            kms = cluster.load_pretrained_kmeans_model(FLAGS)
+            qtrain = kms.predict(xtrain)
+            qtrain = np.histogram(qtrain, FLAGS.depict_output_dim, range=(0, FLAGS.depict_output_dim))[0]
+            qtrain = qtrain / qtrain.sum()
+        except Exception:
+            print('kmeans model is not found! ')
+            print('uniform distibution is generated! ')
+            qtrain = [1 / float(FLAGS.depict_output_dim)] * FLAGS.depict_output_dim
         base_model, train_model = build(FLAGS, alpha, qtrain)
 
         for i in range(10):
             train_model.compile(optimizer=Adam(lr=1e-4), loss=depict_loss)
-            train_model.fit(xtrain, xtrain, epochs=1, validation_split=0.2)
+            train_model.fit(xtrain, xtrain, epochs=1, validation_split=0.1)
             ys_train = base_model.predict(xtrain)
             ys_test = base_model.predict(xtest)
             metrics = classifier.run_with_soft_assignment(ys_train, ys_test, FLAGS)
