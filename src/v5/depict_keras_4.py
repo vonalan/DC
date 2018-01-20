@@ -99,7 +99,7 @@ def depict_loss_layer(args, FLAGS, alpha, prior):
     D = keras.reshape(keras.sum(N, 1), (-1, 1))
     Q = N / D
 
-    # func_04
+    # func_04, may be wrong
     # TODO: make U trainable!!!
     # U = keras.variable(prior)
     # F = keras.reshape(keras.mean(Q, axis=0), (-1, FLAGS.depict_output_dim))
