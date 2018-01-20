@@ -61,6 +61,7 @@ parser.add_argument('--path_to_ytest', type=str,
                     default=os.path.join(database_root, r'data/pwd/%s_ytest_r%d.txt' % (database_name, split_round)))
 parser.add_argument('--path_to_xrand', type=str,
                     default=os.path.join(database_root, r'data/pwd/%s_xrand_r%d.txt' % (database_name, split_round)))
+parser.add_argument('--loss_function', type=str, default='func_08')
 parser.add_argument('--depict_input_dim', type=int, default=-1)
 parser.add_argument('--depict_output_dim', type=int, default=-1)
 parser.add_argument('--rbfnn_input_dim', type=int, default=-1)
@@ -99,20 +100,23 @@ def depict_loss_layer(args, FLAGS, alpha, prior):
     D = keras.reshape(keras.sum(N, 1), (-1, 1))
     Q = N / D
 
-    # func_04, may be wrong
-    # TODO: make U trainable!!!
-    # U = keras.variable(prior)
-    # F = keras.reshape(keras.mean(Q, axis=0), (-1, FLAGS.depict_output_dim))
+    if FLAGS.loss_function == 'func_04':
+        # func_04, may be wrong
+        # TODO: make U trainable!!!
+        U = keras.variable(prior)
+        F = keras.reshape(keras.mean(Q, axis=0), (-1, FLAGS.depict_output_dim))
 
-    # C = Q * keras.log(Q / P)
-    # R = Q * keras.log(F / U)
+        C = Q * keras.log(Q / P)
+        R = Q * keras.log(F / U)
 
-    # alpha = 1e-4
-    # L = keras.reshape(keras.sum(C + alpha * R, axis=1), (-1, 1))
-
-    # func_08
-    C = Q * keras.log(P)
-    L = keras.reshape(keras.sum(C, axis=1), (-1, 1))
+        # when alpha == 0, func_04 -> func_02
+        alpha = 1e-0
+        L = keras.reshape(keras.sum(C + alpha * R, axis=1), (-1, 1))
+    else:
+        # func_08
+        assert FLAGS.loss_function == 'func_08', 'loss function [func_04|func_08]'
+        C = Q * keras.log(P)
+        L = keras.reshape(keras.sum(C, axis=1), (-1, 1))
 
     return L
 
@@ -167,6 +171,7 @@ def main():
             print('kmeans model is not found! ')
             print('uniform distibution is generated! ')
             qtrain = [1 / float(FLAGS.depict_output_dim)] * FLAGS.depict_output_dim
+        # qtrain = [1 / float(FLAGS.depict_output_dim)] * FLAGS.depict_output_dim
         base_model, train_model = build(FLAGS, alpha, qtrain)
 
         # batch_size is large number
@@ -197,4 +202,4 @@ if __name__ == '__main__':
     else:
         main()
 
-        # build_model_test(FLAGS)
+    # build_model_test(FLAGS)
